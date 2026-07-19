@@ -49,6 +49,11 @@
             <p>載入票據中...</p>
         </div>
 
+        <div id="empty-state" class="hidden text-center py-12 text-slate-400">
+            <i class="fa-solid fa-inbox text-3xl mb-3"></i>
+            <p>目前沒有任何票據</p>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden" id="tickets-grid">
         </div>
     </div>
@@ -112,8 +117,15 @@
 
             tickets = data.map(mapTicket);
             document.getElementById('loading-state').classList.add('hidden');
-            document.getElementById('tickets-grid').classList.remove('hidden');
-            renderTickets();
+
+            if (tickets.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('tickets-grid').classList.add('hidden');
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('tickets-grid').classList.remove('hidden');
+                renderTickets();
+            }
         }
 
         function mapTicket(t) {
@@ -141,18 +153,27 @@
         sb
             .channel('tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
-                if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                if (payload.eventType === 'UPDATE') {
                     const updated = mapTicket(payload.new);
                     const index = tickets.findIndex(t => t.id === updated.id);
                     if (index !== -1) {
                         tickets[index] = updated;
-                    } else {
-                        tickets.push(updated);
                     }
+                    renderTickets();
+                } else if (payload.eventType === 'INSERT') {
+                    const added = mapTicket(payload.new);
+                    tickets.push(added);
+                    document.getElementById('empty-state').classList.add('hidden');
+                    document.getElementById('tickets-grid').classList.remove('hidden');
                     renderTickets();
                 } else if (payload.eventType === 'DELETE') {
                     tickets = tickets.filter(t => t.id !== payload.old.id);
-                    renderTickets();
+                    if (tickets.length === 0) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                        document.getElementById('tickets-grid').classList.add('hidden');
+                    } else {
+                        renderTickets();
+                    }
                 }
             })
             .subscribe();
@@ -231,7 +252,7 @@
             document.getElementById('bet-modal').classList.add('hidden');
         }
 
-        function placeBet() {
+        async function placeBet() {
             const amount = parseInt(document.getElementById('bet-amount').value);
             if (!amount || amount < 100) {
                 alert('請輸入至少 100 積分');
@@ -244,33 +265,25 @@
                 return;
             }
 
-            fetch('https://financial-prediction-mvp-production.up.railway.app/api/bet', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ticketId: currentTicket.id,
-                    amount: amount
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('user-points').textContent = (currentPoints - amount).toLocaleString();
-                    currentTicket.currentUnhedged = data.ticket.unhedged;
-                    
-                    closeBetModal();
-                    renderTickets();
-                    showToast(`下注成功！已扣除 ${amount} 積分`);
-                } else {
-                    alert('下注失敗，請稍後再試');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('無法連接到後端伺服器');
-            });
+            const newUnhedged = currentTicket.currentUnhedged + amount;
+
+            const { error } = await sb
+                .from('tickets')
+                .update({ unhedged: newUnhedged })
+                .eq('id', currentTicket.id);
+
+            if (error) {
+                console.error('下注失敗:', error);
+                alert('下注失敗，請稍後再試');
+                return;
+            }
+
+            document.getElementById('user-points').textContent = (currentPoints - amount).toLocaleString();
+            currentTicket.currentUnhedged = newUnhedged;
+
+            closeBetModal();
+            renderTickets();
+            showToast(`下注成功！已扣除 ${amount} 積分`);
         }
 
         function showTransferModal() {
