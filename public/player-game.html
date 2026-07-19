@@ -64,7 +64,8 @@
              class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md mx-4">
             
             <h3 class="text-xl font-bold mb-1" id="modal-ticket-name"></h3>
-            <p class="text-sm text-slate-400 mb-5" id="modal-ticket-expires"></p>
+            <p class="text-sm text-slate-400 mb-1" id="modal-ticket-expires"></p>
+            <p class="text-sm text-slate-400 mb-5" id="modal-ticket-pool"></p>
 
             <div class="space-y-4">
                 <div>
@@ -136,7 +137,9 @@
                 expires: formatExpiry(t.expires_at),
                 currentUnhedged: t.unhedged || 0,
                 currentPrice: t.current_price,
-                direction: t.direction || 'bullish'
+                direction: t.direction || 'bullish',
+                maxLimit: t.max_limit || 500000,
+                accumulatedBet: t.accumulated_bet || 0
             };
         }
 
@@ -192,15 +195,20 @@
                     ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400">看漲</span>' 
                     : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400">看跌</span>';
 
+                const remaining = ticket.maxLimit - ticket.accumulatedBet;
+                const percent = Math.min(100, Math.round((ticket.accumulatedBet / ticket.maxLimit) * 100));
+                const remainingColor = remaining < ticket.maxLimit * 0.1 ? 'text-red-400' : 'text-emerald-400';
+                const isFull = remaining <= 0;
+
                 const card = document.createElement('div');
                 card.className = `ticket-card bg-slate-900 border ${borderColor} ${hoverBorder} rounded-3xl p-5 cursor-pointer`;
                 
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-4">
+                    <div class="flex justify-between items-start mb-3">
                         <div class="pr-4">
                             <div class="flex items-center gap-2 mb-1">${badge}</div>
                             <div class="font-bold text-lg leading-tight">${ticket.name}</div>
-                            <div class="text-sm text-slate-400 mt-2">${ticket.expires}</div>
+                            <div class="text-sm text-slate-400 mt-1">${ticket.expires}</div>
                         </div>
                         <div class="text-right flex-shrink-0">
                             <div class="text-3xl font-bold ${oddsColor}">${ticket.odds}x</div>
@@ -208,19 +216,34 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-xs text-slate-400">目前未對沖</div>
-                            <div class="font-semibold">$${ticket.currentUnhedged.toLocaleString()}</div>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">上限</span>
+                            <span class="font-medium">$${ticket.maxLimit.toLocaleString()}</span>
                         </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">已累積</span>
+                            <span class="font-medium">$${ticket.accumulatedBet.toLocaleString()}</span>
+                        </div>
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">剩餘</span>
+                            <span class="font-medium ${remainingColor}">$${remaining.toLocaleString()}</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-1.5">
+                            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                        <div class="text-right text-xs text-slate-500">${percent}%</div>
+                    </div>
+
+                    <div class="mt-4 text-right">
                         <button onclick="event.stopImmediatePropagation(); openBetModal(${ticket.id})" 
                                 class="px-5 py-2.5 ${btnColor} rounded-2xl text-sm font-semibold transition-all text-white">
-                            立即下注
+                            ${isFull ? '已額滿' : '立即下注'}
                         </button>
                     </div>
                 `;
 
-                card.onclick = () => openBetModal(ticket.id);
+                card.onclick = () => { if (!isFull) openBetModal(ticket.id); };
                 container.appendChild(card);
             });
         }
@@ -229,8 +252,12 @@
             currentTicket = tickets.find(t => t.id === ticketId);
             if (!currentTicket) return;
 
+            const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
+
             document.getElementById('modal-ticket-name').textContent = currentTicket.name;
             document.getElementById('modal-ticket-expires').textContent = currentTicket.expires;
+            document.getElementById('modal-ticket-pool').textContent = 
+                `上限 $${currentTicket.maxLimit.toLocaleString()} · 已累積 $${currentTicket.accumulatedBet.toLocaleString()} · 剩餘 $${remaining.toLocaleString()}`;
 
             const amountInput = document.getElementById('bet-amount');
             amountInput.value = 1000;
@@ -265,11 +292,18 @@
                 return;
             }
 
+            const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
+            if (amount > remaining) {
+                alert('超過剩餘空間！');
+                return;
+            }
+
             const newUnhedged = currentTicket.currentUnhedged + amount;
+            const newAccumulated = currentTicket.accumulatedBet + amount;
 
             const { error } = await sb
                 .from('tickets')
-                .update({ unhedged: newUnhedged })
+                .update({ unhedged: newUnhedged, accumulated_bet: newAccumulated })
                 .eq('id', currentTicket.id);
 
             if (error) {
@@ -280,6 +314,7 @@
 
             document.getElementById('user-points').textContent = (currentPoints - amount).toLocaleString();
             currentTicket.currentUnhedged = newUnhedged;
+            currentTicket.accumulatedBet = newAccumulated;
 
             closeBetModal();
             renderTickets();
