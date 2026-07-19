@@ -15,7 +15,6 @@
 </head>
 <body class="bg-slate-950 text-slate-200">
 
-    <!-- 導航列 -->
     <nav class="bg-slate-900 border-b border-slate-700 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
         <div class="flex items-center gap-x-6">
             <a href="#" class="font-bold text-xl">金融預測區</a>
@@ -45,19 +44,15 @@
             <p class="text-slate-400 mt-1">用積分挑戰真實市場 • 高賠率預測</p>
         </div>
 
-        <!-- 載入中提示 -->
         <div id="loading-state" class="text-center py-12 text-slate-400">
             <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
             <p>載入票據中...</p>
         </div>
 
-        <!-- 票據列表 -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden" id="tickets-grid">
-            <!-- 由 JavaScript 動態產生 -->
         </div>
     </div>
 
-    <!-- 下注 Modal -->
     <div id="bet-modal" onclick="if (event.target.id === 'bet-modal') closeBetModal()"
          class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
         <div onclick="event.stopImmediatePropagation()" 
@@ -95,7 +90,6 @@
     </div>
 
     <script>
-        // ===== Supabase 連線設定 =====
         const supabaseUrl = 'https://hcwikvcdpnnssuibqvbd.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd2lrdmNkcG5uc3N1aWJxdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NDQyMjIsImV4cCI6MjEwMDAyMDIyMn0.apRzZ09BilPfafDEtdOFvbhde2QcxhF5zf0MxZ59du4';
         const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -103,7 +97,6 @@
         let tickets = [];
         let currentTicket = null;
 
-        // ===== 讀取票據資料 =====
         async function loadTickets() {
             const { data, error } = await sb
                 .from('tickets')
@@ -123,7 +116,6 @@
             renderTickets();
         }
 
-        // 把 Supabase 的資料格式轉成頁面需要的格式
         function mapTicket(t) {
             return {
                 id: t.id,
@@ -131,7 +123,8 @@
                 odds: t.odds,
                 expires: formatExpiry(t.expires_at),
                 currentUnhedged: t.unhedged || 0,
-                currentPrice: t.current_price
+                currentPrice: t.current_price,
+                direction: t.direction || 'bullish'
             };
         }
 
@@ -145,7 +138,6 @@
             return `${d.getMonth() + 1}月${d.getDate()}日 ${timeStr}`;
         }
 
-        // ===== 即時更新：資料一變動，畫面自動更新 =====
         sb
             .channel('tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
@@ -158,27 +150,39 @@
                         tickets.push(updated);
                     }
                     renderTickets();
+                } else if (payload.eventType === 'DELETE') {
+                    tickets = tickets.filter(t => t.id !== payload.old.id);
+                    renderTickets();
                 }
             })
             .subscribe();
 
-        // ===== 畫面渲染 =====
         function renderTickets() {
             const container = document.getElementById('tickets-grid');
             container.innerHTML = '';
 
             tickets.forEach(ticket => {
+                const isBullish = ticket.direction === 'bullish';
+                const borderColor = isBullish ? 'border-emerald-600' : 'border-red-600';
+                const hoverBorder = isBullish ? 'hover:border-emerald-500' : 'hover:border-red-500';
+                const oddsColor = isBullish ? 'text-emerald-400' : 'text-red-400';
+                const btnColor = isBullish ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500';
+                const badge = isBullish 
+                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400">看漲</span>' 
+                    : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400">看跌</span>';
+
                 const card = document.createElement('div');
-                card.className = `ticket-card bg-slate-900 border border-slate-700 rounded-3xl p-5 cursor-pointer`;
+                card.className = `ticket-card bg-slate-900 border ${borderColor} ${hoverBorder} rounded-3xl p-5 cursor-pointer`;
                 
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
                         <div class="pr-4">
+                            <div class="flex items-center gap-2 mb-1">${badge}</div>
                             <div class="font-bold text-lg leading-tight">${ticket.name}</div>
                             <div class="text-sm text-slate-400 mt-2">${ticket.expires}</div>
                         </div>
                         <div class="text-right flex-shrink-0">
-                            <div class="text-3xl font-bold text-emerald-400">${ticket.odds}x</div>
+                            <div class="text-3xl font-bold ${oddsColor}">${ticket.odds}x</div>
                             <div class="text-xs text-slate-500 -mt-1">賠率</div>
                         </div>
                     </div>
@@ -189,7 +193,7 @@
                             <div class="font-semibold">$${ticket.currentUnhedged.toLocaleString()}</div>
                         </div>
                         <button onclick="event.stopImmediatePropagation(); openBetModal(${ticket.id})" 
-                                class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-sm font-semibold transition-all">
+                                class="px-5 py-2.5 ${btnColor} rounded-2xl text-sm font-semibold transition-all text-white">
                             立即下注
                         </button>
                     </div>
