@@ -98,14 +98,14 @@
         // ===== Supabase 連線設定 =====
         const supabaseUrl = 'https://hcwikvcdpnnssuibqvbd.supabase.co';
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd2lrdmNkcG5uc3N1aWJxdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NDQyMjIsImV4cCI6MjEwMDAyMDIyMn0.apRzZ09BilPfafDEtdOFvbhde2QcxhF5zf0MxZ59du4';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         let tickets = [];
         let currentTicket = null;
 
         // ===== 讀取票據資料 =====
         async function loadTickets() {
-            const { data, error } = await supabase
+            const { data, error } = await sb
                 .from('tickets')
                 .select('*')
                 .order('id', { ascending: true });
@@ -146,7 +146,7 @@
         }
 
         // ===== 即時更新：資料一變動，畫面自動更新 =====
-        supabase
+        sb
             .channel('tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
                 if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
@@ -162,7 +162,7 @@
             })
             .subscribe();
 
-        // ===== 畫面渲染（邏輯不變） =====
+        // ===== 畫面渲染 =====
         function renderTickets() {
             const container = document.getElementById('tickets-grid');
             container.innerHTML = '';
