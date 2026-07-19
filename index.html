@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融預測遊戲 • Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200">
+    <div class="max-w-4xl mx-auto px-6 py-16">
+        
+        <!-- 標題區 -->
+        <div class="text-center mb-12">
+            <div class="inline-flex items-center gap-x-3 mb-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
+                    <i class="fa-solid fa-chart-line text-white text-3xl"></i>
+                </div>
+                <h1 class="text-4xl font-bold">金融預測遊戲</h1>
+            </div>
+            <p class="text-xl text-slate-400">用積分挑戰真實市場 • 高賠率預測</p>
+            <div class="mt-4 inline-flex items-center gap-x-2 px-4 py-1.5 bg-yellow-900/30 border border-yellow-700 rounded-full text-sm">
+                <i class="fa-solid fa-exclamation-triangle text-yellow-400"></i>
+                <span class="text-yellow-300">Demo 版本 • 部署中</span>
+            </div>
+        </div>
+
+        <!-- 兩個入口卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            
+            <!-- 玩家遊戲頁面 -->
+            <a href="/public/player-game.html" 
+               class="group block bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-3xl p-8 transition-all hover:-translate-y-1">
+                <div class="flex items-start gap-x-4">
+                    <div class="w-14 h-14 bg-emerald-600/20 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-600/30 transition-colors">
+                        <i class="fa-solid fa-gamepad text-emerald-400 text-3xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold mb-2 group-hover:text-emerald-400 transition-colors">玩家遊戲頁面</h3>
+                        <p class="text-slate-400 mb-4">用積分下注金融預測題目，挑戰真實市場走勢</p>
+                        <div class="inline-flex items-center gap-x-2 text-emerald-400 font-medium">
+                            <span>進入遊戲</span>
+                            <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+
+            <!-- 後台監控頁面 -->
+            <a href="/admin/admin-dashboard.html" 
+               class="group block bg-slate-900 border border-slate-700 hover:border-orange-500 rounded-3xl p-8 transition-all hover:-translate-y-1">
+                <div class="flex items-start gap-x-4">
+                    <div class="w-14 h-14 bg-orange-600/20 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-orange-600/30 transition-colors">
+                        <i class="fa-solid fa-tachometer-alt text-orange-400 text-3xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold mb-2 group-hover:text-orange-400 transition-colors">後台監控中心</h3>
+                        <p class="text-slate-400 mb-4">即時監控未對沖金額、對沖觸發條件與風險管理</p>
+                        <div class="inline-flex items-center gap-x-2 text-orange-400 font-medium">
+                            <span>進入後台</span>
+                            <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+
+        </div>
+
+        <!-- 說明區 -->
+        <div class="mt-12 max-w-2xl mx-auto text-center">
+            <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+                <h4 class="font-bold mb-2">這是什麼？</h4>
+                <p class="text-slate-400 text-sm leading-relaxed">
+                    這是一個金融預測遊戲的 Demo 版本。<br>
+                    玩家可以用積分對真實市場題目進行預測，<br>
+                    後台則即時監控風險與對沖狀況。
+                </p>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

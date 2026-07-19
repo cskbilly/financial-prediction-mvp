@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>後台監控中心 • 遊戲網</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+        .stat-card { background: linear-gradient(145deg, #1e2937 0%, #0f172a 100%); }
+        .alert-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200">
+
+    <!-- 導航列 -->
+    <nav class="bg-slate-900 border-b border-slate-700 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div class="flex items-center gap-x-6">
+            <a href="#" class="font-bold text-xl">後台監控中心</a>
+            <a href="../public/player-game.html" 
+               class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 transition-colors">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>回到遊戲頁</span>
+            </a>
+        </div>
+        <div class="flex items-center gap-x-4">
+            <div class="px-3 py-1.5 bg-emerald-900/30 border border-emerald-700 rounded-full text-sm flex items-center gap-x-2">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span class="text-emerald-400">系統運作中</span>
+            </div>
+            <div class="text-right text-sm">
+                <div>對沖管理員</div>
+                <div class="text-xs text-slate-400" id="last-update">剛剛更新</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-screen-2xl mx-auto px-6 py-6">
+        
+        <!-- 需要立即對沖 -->
+        <div class="mb-6 bg-gradient-to-r from-red-900/40 to-orange-900/30 border border-red-600 rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center alert-pulse">
+                        <i class="fa-solid fa-bolt text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-red-200">需要立即對沖</h2>
+                        <div class="text-xs text-red-200/70">觸發條件：① 未對沖金額 ≥ $1,000　或　② 超過 1 小時未對沖</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold text-red-300" id="urgent-count">0</div>
+                    <div class="text-xs text-red-200/70">張票據需處理</div>
+                </div>
+            </div>
+
+            <div class="space-y-3" id="urgent-tickets">
+                <!-- 由 JavaScript 動態產生 -->
+            </div>
+        </div>
+
+        <!-- 總覽數據 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card rounded-2xl p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">今日總流水</div>
+                <div class="text-3xl font-bold mt-1">$284,650</div>
+                <div class="text-emerald-400 text-xs mt-1">+12.4% vs 昨日</div>
+            </div>
+            <div class="stat-card rounded-2xl p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">活躍票據</div>
+                <div class="text-3xl font-bold mt-1">8</div>
+                <div class="text-xs text-slate-400 mt-1">3 張即將到期</div>
+            </div>
+            <div class="stat-card rounded-2xl p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">目前未對沖總額</div>
+                <div class="text-3xl font-bold mt-1 text-yellow-400" id="total-unhedged">$0</div>
+                <div class="text-xs text-slate-400 mt-1">需持續監控</div>
+            </div>
+            <div class="stat-card rounded-2xl p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">待對沖票據</div>
+                <div class="text-3xl font-bold mt-1 text-red-400" id="pending-count">0</div>
+                <div class="text-xs text-red-300/70 mt-1">需優先處理</div>
+            </div>
+        </div>
+
+        <!-- 所有票據監控表格 -->
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-lg">所有票據即時狀態</h3>
+                <button onclick="refreshData()" 
+                        class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-sync-alt"></i>
+                    <span>刷新數據</span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="py-3 px-4 text-left">票據名稱</th>
+                            <th class="py-3 px-4 text-left">未對沖金額</th>
+                            <th class="py-3 px-4 text-left">距上次對沖</th>
+                            <th class="py-3 px-4 text-left">狀態</th>
+                            <th class="py-3 px-4 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tickets-table-body" class="divide-y divide-slate-800">
+                        <!-- 由 JavaScript 動態產生 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tickets = [];
+
+        const socket = io('http://localhost:3000');
+
+        // 接收初始票據資料
+        socket.on('initialTickets', (data) => {
+            tickets = data;
+            updateUI();
+        });
+
+        // 接收即時更新
+        socket.on('ticketUpdated', (updatedTicket) => {
+            const index = tickets.findIndex(t => t.id === updatedTicket.id);
+            if (index !== -1) {
+                tickets[index] = updatedTicket;
+                updateUI();
+            }
+        });
+
+        function updateUI() {
+            renderUrgentTickets();
+            renderTicketsTable();
+            updateOverviewStats();
+        }
+
+        function updateOverviewStats() {
+            const totalUnhedged = tickets.reduce((sum, t) => sum + t.unhedged, 0);
+            const pendingCount = tickets.filter(t => t.unhedged >= 1000 || 
+                Math.floor((new Date() - new Date(t.lastHedge)) / 1000 / 60) > 60).length;
+
+            document.getElementById('total-unhedged').textContent = '$' + totalUnhedged.toLocaleString();
+            document.getElementById('pending-count').textContent = pendingCount;
+        }
+
+        function formatTimeAgo(date) {
+            const diff = Math.floor((new Date() - new Date(date)) / 1000 / 60);
+            if (diff < 60) return `${diff} 分鐘前`;
+            return `${Math.floor(diff / 60)} 小時 ${diff % 60} 分前`;
+        }
+
+        function getStatus(ticket) {
+            const minutes = Math.floor((new Date() - new Date(ticket.lastHedge)) / 1000 / 60);
+            if (ticket.unhedged >= 1000) {
+                return { color: 'red', label: '需立即對沖' };
+            } else if (minutes > 60) {
+                return { color: 'orange', label: '需立即對沖' };
+            } else {
+                return { color: 'emerald', label: '正常' };
+            }
+        }
+
+        function renderUrgentTickets() {
+            const container = document.getElementById('urgent-tickets');
+            container.innerHTML = '';
+
+            const urgent = tickets.filter(t => t.unhedged >= 1000 || 
+                Math.floor((new Date() - new Date(t.lastHedge)) / 1000 / 60) > 60);
+
+            document.getElementById('urgent-count').textContent = urgent.length;
+
+            urgent.forEach(ticket => {
+                const status = getStatus(ticket);
+                const div = document.createElement('div');
+                div.className = `bg-slate-950/70 border border-${status.color}-500 rounded-xl p-4 flex justify-between items-center`;
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold">${ticket.name}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">
+                            未對沖：$${ticket.unhedged.toLocaleString()} ｜ ${formatTimeAgo(ticket.lastHedge)}
+                        </div>
+                    </div>
+                    <button onclick="performHedge(${ticket.id}, this)" 
+                            class="px-5 py-2 bg-${status.color}-600 hover:bg-${status.color}-500 rounded-xl font-bold text-sm">
+                        立即對沖
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderTicketsTable() {
+            const tbody = document.getElementById('tickets-table-body');
+            tbody.innerHTML = '';
+
+            tickets.forEach(ticket => {
+                const status = getStatus(ticket);
+                const row = document.createElement('tr');
+                row.className = 'border-b border-slate-800 hover:bg-slate-900';
+                row.innerHTML = `
+                    <td class="py-4 px-4 font-medium">${ticket.name}</td>
+                    <td class="py-4 px-4 font-bold">$${ticket.unhedged.toLocaleString()}</td>
+                    <td class="py-4 px-4 text-slate-400">${formatTimeAgo(ticket.lastHedge)}</td>
+                    <td class="py-4 px-4">
+                        <span class="px-3 py-1 text-xs rounded-full bg-${status.color}-900/50 text-${status.color}-400">
+                            ${status.label}
+                        </span>
+                    </td>
+                    <td class="py-4 px-4 text-right">
+                        <button onclick="performHedge(${ticket.id}, this)" 
+                                class="px-4 py-2 text-sm rounded-xl ${status.color === 'emerald' ? 'bg-slate-700 hover:bg-slate-600' : `bg-${status.color}-600 hover:bg-${status.color}-500`}">
+                            ${status.color === 'emerald' ? '查看' : '立即對沖'}
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function performHedge(ticketId, buttonElement) {
+            const ticket = tickets.find(t => t.id === ticketId);
+            if (!ticket) return;
+
+            buttonElement.disabled = true;
+            buttonElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>執行中...`;
+
+            // 這裡之後會連接到真實後端，現在先模擬
+            setTimeout(() => {
+                ticket.unhedged = 0;
+                ticket.lastHedge = new Date();
+
+                buttonElement.innerHTML = '已對沖';
+                buttonElement.className = 'px-4 py-2 text-sm rounded-xl bg-emerald-600';
+
+                setTimeout(() => {
+                    renderUrgentTickets();
+                    renderTicketsTable();
+                }, 600);
+            }, 1100);
+        }
+
+        function refreshData() {
+            alert('刷新功能開發中...');
+        }
+
+        function init() {
+            // 初始資料由 Socket.io 自動接收
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
