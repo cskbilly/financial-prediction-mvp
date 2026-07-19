@@ -120,7 +120,7 @@
     <script>
         let tickets = [];
 
-        const socket = io('http://localhost:3000');
+        const socket = io('https://financial-prediction-mvp-production.up.railway.app');
 
         // 接收初始票據資料
         socket.on('initialTickets', (data) => {
