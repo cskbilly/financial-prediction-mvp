@@ -1,202 +1,55 @@
-require('dotenv').config();
-
-const path = require('path');
 const express = require('express');
 const http = require('http');
-const cors = require('cors');
 const { Server } = require('socket.io');
-const { createClient } = require('@supabase/supabase-js');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-
-const PORT = 3000;
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map(v => v.trim())
-  .filter(Boolean);
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment variables');
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-function corsOriginCheck(origin, callback) {
-  if (!origin) return callback(null, true);
-  if (ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
-    return callback(null, true);
-  }
-  return callback(new Error('Not allowed by CORS'));
-}
-
-app.use(cors({
-  origin: corsOriginCheck,
-  methods: ['GET', 'POST']
-}));
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
 const io = new Server(server, {
   cors: {
-    origin: corsOriginCheck,
-    methods: ['GET', 'POST']
+    origin: "*",
+    methods: ["GET", "POST"]
   }
 });
 
-function toNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : NaN;
-}
+app.use(cors());
+app.use(express.json());
 
-function normalizeTicket(ticket) {
-  return {
-    id: ticket.id,
-    name: ticket.name,
-    odds: Number(ticket.odds),
-    expires_at: ticket.expires_at,
-    unhedged: Number(ticket.unhedged || 0),
-    last_hedge: ticket.last_hedge,
-    created_at: ticket.created_at,
-    updated_at: ticket.updated_at
-  };
-}
+// 暫時使用記憶體陣列測試
+let tickets = [
+  { id: 1, name: "特斯拉 (TSLA) 今日收盤 > $420", unhedged: 385000, lastHedge: new Date() },
+  { id: 2, name: "COMEX 黃金 7/28 收盤 > $4200", unhedged: 186420, lastHedge: new Date() },
+  { id: 3, name: "輝達 (NVDA) 今日收盤 > $145", unhedged: 0, lastHedge: new Date() }
+];
 
-async function fetchAllTickets() {
-  const { data, error } = await supabase
-    .from('tickets')
-    .select('*')
-    .order('id', { ascending: true });
-
-  if (error) throw error;
-  return (data || []).map(normalizeTicket);
-}
-
-async function fetchTicketById(ticketId) {
-  const { data, error } = await supabase
-    .from('tickets')
-    .select('*')
-    .eq('id', ticketId)
-    .single();
-
-  if (error) throw error;
-  return data ? normalizeTicket(data) : null;
-}
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    ok: true,
-    service: 'financial-prediction-mvp',
-    timestamp: new Date().toISOString()
-  });
+// 取得所有票據
+app.get('/api/tickets', (req, res) => {
+  res.json(tickets);
 });
 
-app.get('/api/tickets', async (req, res) => {
-  try {
-    const tickets = await fetchAllTickets();
-    res.json({ success: true, tickets });
-  } catch (error) {
-    console.error('Get tickets error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch tickets' });
-  }
-});
+// 玩家下注
+app.post('/api/bet', (req, res) => {
+  const { ticketId, amount } = req.body;
 
-app.post('/api/bet', async (req, res) => {
-  try {
-    const ticketId = parseInt(req.body.ticketId, 10);
-    const amount = parseInt(req.body.amount, 10);
-
-    if (!Number.isInteger(ticketId) || ticketId <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid ticketId' });
-    }
-
-    if (!Number.isInteger(amount) || amount < 100 || amount > 1000000) {
-      return res.status(400).json({ success: false, error: 'Invalid amount' });
-    }
-
-    const ticket = await fetchTicketById(ticketId);
-
-    if (!ticket) {
-      return res.status(404).json({ success: false, error: 'Ticket not found' });
-    }
-
-    const newUnhedged = toNumber(ticket.unhedged) + amount;
-
-    if (!Number.isFinite(newUnhedged)) {
-      return res.status(500).json({ success: false, error: 'Invalid unhedged calculation' });
-    }
-
-    const now = new Date().toISOString();
-
-    const { error: updateError } = await supabase
-      .from('tickets')
-      .update({
-        unhedged: newUnhedged,
-        last_hedge: now,
-        updated_at: now
-      })
-      .eq('id', ticketId);
-
-    if (updateError) {
-      console.error('Update ticket error:', updateError);
-      return res.status(500).json({ success: false, error: 'Failed to update ticket' });
-    }
-
-    const { error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        ticket_id: ticketId,
-        amount,
-        created_at: now
-      });
-
-    if (txError) {
-      console.error('Insert transaction error:', txError);
-      return res.status(500).json({ success: false, error: 'Failed to record transaction' });
-    }
-
-    const updatedTicket = await fetchTicketById(ticketId);
-
-    io.emit('ticketUpdated', updatedTicket);
-
-    res.json({
-      success: true,
-      ticket: updatedTicket
-    });
-  } catch (error) {
-    console.error('Bet error:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
-
-io.on('connection', async (socket) => {
-  console.log('Socket connected:', socket.id);
-
-  try {
-    const tickets = await fetchAllTickets();
-    socket.emit('initialTickets', tickets);
-  } catch (error) {
-    console.error('Initial socket load error:', error);
-    socket.emit('serverError', { message: 'Failed to load initial tickets' });
+  const ticket = tickets.find(t => t.id === ticketId);
+  if (!ticket) {
+    return res.status(404).json({ error: 'Ticket not found' });
   }
 
-  socket.on('disconnect', (reason) => {
-    console.log('Socket disconnected:', socket.id, reason);
-  });
+  ticket.unhedged = parseFloat(ticket.unhedged) + parseFloat(amount);
+  ticket.lastHedge = new Date();
+
+  io.emit('ticketUpdated', ticket);
+
+  res.json({ success: true, ticket });
 });
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'player-game.html'));
+// Socket.io 連線
+io.on('connection', (socket) => {
+  console.log('後台已連線:', socket.id);
 });
 
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
-});
-
+const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`後端伺服器運行在 http://0.0.0.0:${PORT}`);
 });
