@@ -67,8 +67,8 @@
                 <div class="text-xs text-slate-400 mt-1">來自 Supabase</div>
             </div>
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
-                <div class="text-slate-400 text-xs">活躍票據</div>
-                <div class="text-3xl font-bold mt-1" id="active-count">0</div>
+                <div class="text-slate-400 text-xs">所有票據總上限</div>
+                <div class="text-3xl font-bold mt-1" id="total-limit">$0</div>
                 <div class="text-xs text-slate-400 mt-1" id="expiring-soon">0 張即將到期</div>
             </div>
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
@@ -99,6 +99,7 @@
                         <tr class="border-b border-slate-700 text-slate-400">
                             <th class="py-3 px-4 text-left">票據名稱</th>
                             <th class="py-3 px-4 text-left">方向</th>
+                            <th class="py-3 px-4 text-left">上限 / 已累積 / 剩餘</th>
                             <th class="py-3 px-4 text-left">未對沖金額</th>
                             <th class="py-3 px-4 text-left">距上次對沖</th>
                             <th class="py-3 px-4 text-left">狀態</th>
@@ -142,14 +143,15 @@
                 direction: t.direction || 'bullish',
                 unhedged: t.unhedged || 0,
                 lastHedge: t.last_hedge || t.created_at,
-                expiresAt: t.expires_at
+                expiresAt: t.expires_at,
+                maxLimit: t.max_limit || 500000,
+                accumulatedBet: t.accumulated_bet || 0
             };
         }
 
         sb
             .channel('admin-tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
-                console.log('收到更新:', payload);
                 if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                     const updated = mapTicket(payload.new);
                     const index = tickets.findIndex(t => t.id === updated.id);
@@ -165,7 +167,7 @@
                     updateUI();
                 }
             })
-            .subscribe((status) => console.log('訂閱狀態:', status));
+            .subscribe();
 
         function updateUI() {
             renderUrgentTickets();
@@ -175,6 +177,7 @@
 
         function updateOverviewStats() {
             const totalUnhedged = tickets.reduce((sum, t) => sum + t.unhedged, 0);
+            const totalLimit = tickets.reduce((sum, t) => sum + t.maxLimit, 0);
             const pendingCount = tickets.filter(isUrgent).length;
             const expiringSoon = tickets.filter(t => {
                 if (!t.expiresAt) return false;
@@ -183,7 +186,7 @@
             }).length;
 
             document.getElementById('total-tickets').textContent = tickets.length;
-            document.getElementById('active-count').textContent = tickets.length;
+            document.getElementById('total-limit').textContent = '$' + totalLimit.toLocaleString();
             document.getElementById('expiring-soon').textContent = `${expiringSoon} 張即將到期`;
             document.getElementById('total-unhedged').textContent = '$' + totalUnhedged.toLocaleString();
             document.getElementById('pending-count').textContent = pendingCount;
@@ -231,7 +234,7 @@
                     </div>
                     <button onclick="performHedge(${ticket.id}, this)" 
                             class="px-5 py-2 bg-${status.color}-600 hover:bg-${status.color}-500 rounded-xl font-bold text-sm">
-                        立即對沖
+                        立即對沖（全額）
                     </button>
                 `;
                 container.appendChild(div);
@@ -248,11 +251,16 @@
                     ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400">看漲</span>'
                     : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400">看跌</span>';
 
+                const remaining = ticket.maxLimit - ticket.accumulatedBet;
+
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-800 hover:bg-slate-900';
                 row.innerHTML = `
                     <td class="py-4 px-4 font-medium">${ticket.name}</td>
                     <td class="py-4 px-4">${directionBadge}</td>
+                    <td class="py-4 px-4 text-xs text-slate-400">
+                        $${ticket.maxLimit.toLocaleString()} / $${ticket.accumulatedBet.toLocaleString()} / $${remaining.toLocaleString()}
+                    </td>
                     <td class="py-4 px-4 font-bold">$${ticket.unhedged.toLocaleString()}</td>
                     <td class="py-4 px-4 text-slate-400">${formatTimeAgo(ticket.lastHedge)}</td>
                     <td class="py-4 px-4">
