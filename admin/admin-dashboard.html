@@ -149,6 +149,7 @@
         sb
             .channel('admin-tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
+                console.log('收到更新:', payload);
                 if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                     const updated = mapTicket(payload.new);
                     const index = tickets.findIndex(t => t.id === updated.id);
@@ -164,7 +165,7 @@
                     updateUI();
                 }
             })
-            .subscribe();
+            .subscribe((status) => console.log('訂閱狀態:', status));
 
         function updateUI() {
             renderUrgentTickets();
@@ -174,7 +175,7 @@
 
         function updateOverviewStats() {
             const totalUnhedged = tickets.reduce((sum, t) => sum + t.unhedged, 0);
-            const pendingCount = tickets.filter(t => isUrgent(t)).length;
+            const pendingCount = tickets.filter(isUrgent).length;
             const expiringSoon = tickets.filter(t => {
                 if (!t.expiresAt) return false;
                 const hoursLeft = (new Date(t.expiresAt) - new Date()) / 1000 / 60 / 60;
@@ -277,9 +278,11 @@
             buttonElement.disabled = true;
             buttonElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>執行中...`;
 
+            const nowIso = new Date().toISOString();
+
             const { error } = await sb
                 .from('tickets')
-                .update({ unhedged: 0, last_hedge: new Date().toISOString() })
+                .update({ unhedged: 0, last_hedge: nowIso })
                 .eq('id', ticketId);
 
             if (error) {
@@ -289,8 +292,10 @@
                 return;
             }
 
-            buttonElement.innerHTML = '已對沖';
-            buttonElement.className = 'px-4 py-2 text-sm rounded-xl bg-emerald-600';
+            ticket.unhedged = 0;
+            ticket.lastHedge = nowIso;
+
+            updateUI();
         }
 
         function init() {
