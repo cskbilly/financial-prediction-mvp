@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>後台監控中心 • 遊戲網</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
@@ -16,7 +16,6 @@
 </head>
 <body class="bg-slate-950 text-slate-200">
 
-    <!-- 導航列 -->
     <nav class="bg-slate-900 border-b border-slate-700 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
         <div class="flex items-center gap-x-6">
             <a href="#" class="font-bold text-xl">後台監控中心</a>
@@ -40,7 +39,6 @@
 
     <div class="max-w-screen-2xl mx-auto px-6 py-6">
         
-        <!-- 需要立即對沖 -->
         <div class="mb-6 bg-gradient-to-r from-red-900/40 to-orange-900/30 border border-red-600 rounded-2xl p-5">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
@@ -59,21 +57,19 @@
             </div>
 
             <div class="space-y-3" id="urgent-tickets">
-                <!-- 由 JavaScript 動態產生 -->
             </div>
         </div>
 
-        <!-- 總覽數據 -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
-                <div class="text-slate-400 text-xs">今日總流水</div>
-                <div class="text-3xl font-bold mt-1">$284,650</div>
-                <div class="text-emerald-400 text-xs mt-1">+12.4% vs 昨日</div>
+                <div class="text-slate-400 text-xs">目前票據總數</div>
+                <div class="text-3xl font-bold mt-1" id="total-tickets">0</div>
+                <div class="text-xs text-slate-400 mt-1">來自 Supabase</div>
             </div>
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
                 <div class="text-slate-400 text-xs">活躍票據</div>
-                <div class="text-3xl font-bold mt-1">8</div>
-                <div class="text-xs text-slate-400 mt-1">3 張即將到期</div>
+                <div class="text-3xl font-bold mt-1" id="active-count">0</div>
+                <div class="text-xs text-slate-400 mt-1" id="expiring-soon">0 張即將到期</div>
             </div>
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
                 <div class="text-slate-400 text-xs">目前未對沖總額</div>
@@ -87,11 +83,10 @@
             </div>
         </div>
 
-        <!-- 所有票據監控表格 -->
         <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-lg">所有票據即時狀態</h3>
-                <button onclick="refreshData()" 
+                <button onclick="loadTickets()" 
                         class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm flex items-center gap-2">
                     <i class="fa-solid fa-sync-alt"></i>
                     <span>刷新數據</span>
@@ -103,6 +98,7 @@
                     <thead>
                         <tr class="border-b border-slate-700 text-slate-400">
                             <th class="py-3 px-4 text-left">票據名稱</th>
+                            <th class="py-3 px-4 text-left">方向</th>
                             <th class="py-3 px-4 text-left">未對沖金額</th>
                             <th class="py-3 px-4 text-left">距上次對沖</th>
                             <th class="py-3 px-4 text-left">狀態</th>
@@ -110,7 +106,6 @@
                         </tr>
                     </thead>
                     <tbody id="tickets-table-body" class="divide-y divide-slate-800">
-                        <!-- 由 JavaScript 動態產生 -->
                     </tbody>
                 </table>
             </div>
@@ -118,24 +113,58 @@
     </div>
 
     <script>
+        const supabaseUrl = 'https://hcwikvcdpnnssuibqvbd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd2lrdmNkcG5uc3N1aWJxdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NDQyMjIsImV4cCI6MjEwMDAyMDIyMn0.apRzZ09BilPfafDEtdOFvbhde2QcxhF5zf0MxZ59du4';
+        const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
+
         let tickets = [];
 
-        const socket = io('https://financial-prediction-mvp-production.up.railway.app');
+        async function loadTickets() {
+            const { data, error } = await sb
+                .from('tickets')
+                .select('*')
+                .order('id', { ascending: true });
 
-        // 接收初始票據資料
-        socket.on('initialTickets', (data) => {
-            tickets = data;
-            updateUI();
-        });
-
-        // 接收即時更新
-        socket.on('ticketUpdated', (updatedTicket) => {
-            const index = tickets.findIndex(t => t.id === updatedTicket.id);
-            if (index !== -1) {
-                tickets[index] = updatedTicket;
-                updateUI();
+            if (error) {
+                console.error('讀取失敗:', error);
+                return;
             }
-        });
+
+            tickets = data.map(mapTicket);
+            updateUI();
+            document.getElementById('last-update').textContent = '剛剛更新';
+        }
+
+        function mapTicket(t) {
+            return {
+                id: t.id,
+                name: t.name,
+                direction: t.direction || 'bullish',
+                unhedged: t.unhedged || 0,
+                lastHedge: t.last_hedge || t.created_at,
+                expiresAt: t.expires_at
+            };
+        }
+
+        sb
+            .channel('admin-tickets-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
+                if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                    const updated = mapTicket(payload.new);
+                    const index = tickets.findIndex(t => t.id === updated.id);
+                    if (index !== -1) {
+                        tickets[index] = updated;
+                    } else {
+                        tickets.push(updated);
+                    }
+                    updateUI();
+                    document.getElementById('last-update').textContent = '剛剛更新';
+                } else if (payload.eventType === 'DELETE') {
+                    tickets = tickets.filter(t => t.id !== payload.old.id);
+                    updateUI();
+                }
+            })
+            .subscribe();
 
         function updateUI() {
             renderUrgentTickets();
@@ -145,9 +174,16 @@
 
         function updateOverviewStats() {
             const totalUnhedged = tickets.reduce((sum, t) => sum + t.unhedged, 0);
-            const pendingCount = tickets.filter(t => t.unhedged >= 1000 || 
-                Math.floor((new Date() - new Date(t.lastHedge)) / 1000 / 60) > 60).length;
+            const pendingCount = tickets.filter(t => isUrgent(t)).length;
+            const expiringSoon = tickets.filter(t => {
+                if (!t.expiresAt) return false;
+                const hoursLeft = (new Date(t.expiresAt) - new Date()) / 1000 / 60 / 60;
+                return hoursLeft > 0 && hoursLeft < 2;
+            }).length;
 
+            document.getElementById('total-tickets').textContent = tickets.length;
+            document.getElementById('active-count').textContent = tickets.length;
+            document.getElementById('expiring-soon').textContent = `${expiringSoon} 張即將到期`;
             document.getElementById('total-unhedged').textContent = '$' + totalUnhedged.toLocaleString();
             document.getElementById('pending-count').textContent = pendingCount;
         }
@@ -158,24 +194,27 @@
             return `${Math.floor(diff / 60)} 小時 ${diff % 60} 分前`;
         }
 
-        function getStatus(ticket) {
+        function isUrgent(ticket) {
             const minutes = Math.floor((new Date() - new Date(ticket.lastHedge)) / 1000 / 60);
+            return ticket.unhedged >= 1000 || minutes > 60;
+        }
+
+        function getStatus(ticket) {
             if (ticket.unhedged >= 1000) {
                 return { color: 'red', label: '需立即對沖' };
-            } else if (minutes > 60) {
-                return { color: 'orange', label: '需立即對沖' };
-            } else {
-                return { color: 'emerald', label: '正常' };
             }
+            const minutes = Math.floor((new Date() - new Date(ticket.lastHedge)) / 1000 / 60);
+            if (minutes > 60) {
+                return { color: 'orange', label: '需立即對沖' };
+            }
+            return { color: 'emerald', label: '正常' };
         }
 
         function renderUrgentTickets() {
             const container = document.getElementById('urgent-tickets');
             container.innerHTML = '';
 
-            const urgent = tickets.filter(t => t.unhedged >= 1000 || 
-                Math.floor((new Date() - new Date(t.lastHedge)) / 1000 / 60) > 60);
-
+            const urgent = tickets.filter(isUrgent);
             document.getElementById('urgent-count').textContent = urgent.length;
 
             urgent.forEach(ticket => {
@@ -204,10 +243,15 @@
 
             tickets.forEach(ticket => {
                 const status = getStatus(ticket);
+                const directionBadge = ticket.direction === 'bullish'
+                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400">看漲</span>'
+                    : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400">看跌</span>';
+
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-800 hover:bg-slate-900';
                 row.innerHTML = `
                     <td class="py-4 px-4 font-medium">${ticket.name}</td>
+                    <td class="py-4 px-4">${directionBadge}</td>
                     <td class="py-4 px-4 font-bold">$${ticket.unhedged.toLocaleString()}</td>
                     <td class="py-4 px-4 text-slate-400">${formatTimeAgo(ticket.lastHedge)}</td>
                     <td class="py-4 px-4">
@@ -226,34 +270,31 @@
             });
         }
 
-        function performHedge(ticketId, buttonElement) {
+        async function performHedge(ticketId, buttonElement) {
             const ticket = tickets.find(t => t.id === ticketId);
             if (!ticket) return;
 
             buttonElement.disabled = true;
             buttonElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>執行中...`;
 
-            // 這裡之後會連接到真實後端，現在先模擬
-            setTimeout(() => {
-                ticket.unhedged = 0;
-                ticket.lastHedge = new Date();
+            const { error } = await sb
+                .from('tickets')
+                .update({ unhedged: 0, last_hedge: new Date().toISOString() })
+                .eq('id', ticketId);
 
-                buttonElement.innerHTML = '已對沖';
-                buttonElement.className = 'px-4 py-2 text-sm rounded-xl bg-emerald-600';
+            if (error) {
+                console.error('對沖失敗:', error);
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = '重試';
+                return;
+            }
 
-                setTimeout(() => {
-                    renderUrgentTickets();
-                    renderTicketsTable();
-                }, 600);
-            }, 1100);
-        }
-
-        function refreshData() {
-            alert('刷新功能開發中...');
+            buttonElement.innerHTML = '已對沖';
+            buttonElement.className = 'px-4 py-2 text-sm rounded-xl bg-emerald-600';
         }
 
         function init() {
-            // 初始資料由 Socket.io 自動接收
+            loadTickets();
         }
 
         window.onload = init;
