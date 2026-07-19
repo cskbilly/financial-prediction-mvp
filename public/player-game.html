@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>遊戲網 • 金融預測區</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
@@ -44,8 +45,14 @@
             <p class="text-slate-400 mt-1">用積分挑戰真實市場 • 高賠率預測</p>
         </div>
 
+        <!-- 載入中提示 -->
+        <div id="loading-state" class="text-center py-12 text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+            <p>載入票據中...</p>
+        </div>
+
         <!-- 票據列表 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="tickets-grid">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden" id="tickets-grid">
             <!-- 由 JavaScript 動態產生 -->
         </div>
     </div>
@@ -88,30 +95,74 @@
     </div>
 
     <script>
-        let tickets = [
-            {
-                id: 1,
-                name: "特斯拉 (TSLA) 今日收盤 > $420",
-                odds: 4.2,
-                expires: "今日 16:00",
-                currentUnhedged: 385000
-            },
-            {
-                id: 2,
-                name: "COMEX 黃金 7/28 收盤 > $4200",
-                odds: 5.8,
-                expires: "7月28日",
-                currentUnhedged: 186420
-            },
-            {
-                id: 3,
-                name: "輝達 (NVDA) 今日收盤 > $145",
-                odds: 3.1,
-                expires: "今日 16:00",
-                currentUnhedged: 0
-            }
-        ];
+        // ===== Supabase 連線設定 =====
+        const supabaseUrl = 'https://hcwikvcdpnnssuibqvbd.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd2lrdmNkcG5uc3N1aWJxdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NDQyMjIsImV4cCI6MjEwMDAyMDIyMn0.apRzZ09BilPfafDEtdOFvbhde2QcxhF5zf0MxZ59du4';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
+        let tickets = [];
+        let currentTicket = null;
+
+        // ===== 讀取票據資料 =====
+        async function loadTickets() {
+            const { data, error } = await supabase
+                .from('tickets')
+                .select('*')
+                .order('id', { ascending: true });
+
+            if (error) {
+                console.error('讀取失敗:', error);
+                document.getElementById('loading-state').innerHTML =
+                    '<p class="text-red-400">載入失敗，請檢查連線設定</p>';
+                return;
+            }
+
+            tickets = data.map(mapTicket);
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('tickets-grid').classList.remove('hidden');
+            renderTickets();
+        }
+
+        // 把 Supabase 的資料格式轉成頁面需要的格式
+        function mapTicket(t) {
+            return {
+                id: t.id,
+                name: t.name,
+                odds: t.odds,
+                expires: formatExpiry(t.expires_at),
+                currentUnhedged: t.unhedged || 0,
+                currentPrice: t.current_price
+            };
+        }
+
+        function formatExpiry(dateStr) {
+            if (!dateStr) return '未設定';
+            const d = new Date(dateStr);
+            const now = new Date();
+            const sameDay = d.toDateString() === now.toDateString();
+            const timeStr = d.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
+            if (sameDay) return `今日 ${timeStr}`;
+            return `${d.getMonth() + 1}月${d.getDate()}日 ${timeStr}`;
+        }
+
+        // ===== 即時更新：資料一變動，畫面自動更新 =====
+        supabase
+            .channel('tickets-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
+                if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                    const updated = mapTicket(payload.new);
+                    const index = tickets.findIndex(t => t.id === updated.id);
+                    if (index !== -1) {
+                        tickets[index] = updated;
+                    } else {
+                        tickets.push(updated);
+                    }
+                    renderTickets();
+                }
+            })
+            .subscribe();
+
+        // ===== 畫面渲染（邏輯不變） =====
         function renderTickets() {
             const container = document.getElementById('tickets-grid');
             container.innerHTML = '';
@@ -148,8 +199,6 @@
                 container.appendChild(card);
             });
         }
-
-        let currentTicket = null;
 
         function openBetModal(ticketId) {
             currentTicket = tickets.find(t => t.id === ticketId);
@@ -191,7 +240,6 @@
                 return;
             }
 
-            // 呼叫後端 API
             fetch('https://financial-prediction-mvp-production.up.railway.app/api/bet', {
                 method: 'POST',
                 headers: {
@@ -247,7 +295,7 @@
         }
 
         function init() {
-            renderTickets();
+            loadTickets();
         }
 
         window.onload = init;
