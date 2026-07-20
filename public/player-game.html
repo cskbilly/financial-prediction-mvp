@@ -2,154 +2,149 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>遊戲網 • 金融預測區</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>後台監控中心 • 遊戲網</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { font-family: 'Noto Sans TC', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
-        .ticket-card { transition: transform 0.15s ease; }
-        .ticket-card:active { transform: scale(0.98); }
-        @media (hover:hover) { .ticket-card:hover { transform: translateY(-2px); } }
-        .sheet-enter { animation: slideUp 0.25s ease-out; }
-        @media (min-width: 768px) { .sheet-enter { animation: fadeScale 0.2s ease-out; } }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        @keyframes fadeScale { from { opacity:0; transform: scale(0.95); } to { opacity:1; transform: scale(1); } }
-        .quick-amt.active { background-color: #059669 !important; color: white; }
-        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+        .stat-card { background: linear-gradient(145deg, #1e2937 0%, #0f172a 100%); }
+        .alert-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .tab-btn.active { background-color: #059669; color: white; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 pb-20 md:pb-0">
+<body class="bg-slate-950 text-slate-200">
 
-    <div id="auth-screen" class="fixed inset-0 bg-slate-950 z-[300] flex items-center justify-center px-6">
-        <div class="w-full max-w-sm">
-            <div class="text-center mb-8">
-                <div class="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-chart-line text-2xl text-white"></i>
-                </div>
-                <h1 class="text-2xl font-bold">金融預測區</h1>
-                <p class="text-slate-400 text-sm mt-1">登入或註冊開始遊戲</p>
+    <nav class="bg-slate-900 border-b border-slate-700 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-50 gap-2">
+        <div class="flex items-center gap-x-4 min-w-0">
+            <span class="font-bold text-lg whitespace-nowrap flex-shrink-0">後台監控中心</span>
+            <a href="../public/player-game.html" 
+               class="hidden md:flex text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg items-center gap-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-gamepad"></i>
+                <span>回到遊戲頁</span>
+            </a>
+        </div>
+        <div class="flex items-center gap-x-3 flex-shrink-0">
+            <div class="px-3 py-1.5 bg-emerald-900/30 border border-emerald-700 rounded-full text-xs md:text-sm flex items-center gap-x-2 whitespace-nowrap">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span class="text-emerald-400 hidden sm:inline">系統運作中</span>
             </div>
-
-            <div class="space-y-3">
-                <input type="text" id="auth-username" placeholder="帳號名稱" autocomplete="username"
-                       class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3.5 outline-none">
-                <input type="password" id="auth-password" placeholder="密碼" autocomplete="current-password"
-                       class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3.5 outline-none">
-            </div>
-
-            <p id="auth-error" class="hidden text-red-400 text-sm mt-3 text-center"></p>
-
-            <div class="space-y-3 mt-5">
-                <button id="login-btn" onclick="handleLogin()" 
-                        class="w-full py-3.5 bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500 rounded-2xl font-bold">
-                    登入
-                </button>
-                <button id="register-btn" onclick="handleRegister()" 
-                        class="w-full py-3.5 bg-slate-800 active:bg-slate-700 hover:bg-slate-700 rounded-2xl font-medium">
-                    註冊新帳號（送 10,000 積分）
-                </button>
+            <div class="text-right text-xs md:text-sm whitespace-nowrap">
+                <div id="last-update">載入中...</div>
             </div>
         </div>
-    </div>
+    </nav>
 
-    <nav class="bg-slate-900 border-b border-slate-700 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-40 gap-2">
-        <span class="font-bold text-base md:text-xl whitespace-nowrap flex-shrink-0">金融預測區</span>
+    <div class="max-w-screen-2xl mx-auto px-4 md:px-6 py-4 md:py-6">
 
-        <div class="hidden md:flex items-center gap-x-4 flex-shrink-0">
-            <a href="../admin/admin-dashboard.html" 
-               class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
-                <i class="fa-solid fa-tachometer-alt"></i>
-                <span>後台監控</span>
-            </a>
-            <div class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-2xl flex items-center gap-x-2 whitespace-nowrap">
-                <span class="text-sm text-slate-400" id="username-display-desktop"></span>
-                <span class="text-slate-600">|</span>
-                <span class="text-sm text-slate-400">積分</span>
-                <span class="text-xl font-bold text-emerald-400" id="user-points-desktop">0</span>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <div class="stat-card rounded-2xl p-4 md:p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">House Account 餘額</div>
+                <div class="text-2xl md:text-3xl font-bold mt-1 text-emerald-400" id="house-balance">$0</div>
+                <div class="text-xs text-slate-400 mt-1">公司資金池</div>
             </div>
-            <button onclick="handleLogout()" 
-                    class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-2xl text-sm font-medium flex items-center gap-x-2 whitespace-nowrap">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>登出</span>
+            <div class="stat-card rounded-2xl p-4 md:p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">累計存款 / 派彩</div>
+                <div class="text-xl md:text-2xl font-bold mt-1" id="house-deposits-payouts">$0 / $0</div>
+                <div class="text-xs text-slate-400 mt-1">歷史總額</div>
+            </div>
+            <div class="stat-card rounded-2xl p-4 md:p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">目前未對沖總額</div>
+                <div class="text-2xl md:text-3xl font-bold mt-1 text-yellow-400" id="total-unhedged">$0</div>
+                <div class="text-xs text-slate-400 mt-1" id="unhedged-bet-count">0 張未對沖注單</div>
+            </div>
+            <div class="stat-card rounded-2xl p-4 md:p-5 border border-slate-700">
+                <div class="text-slate-400 text-xs">待處理事項</div>
+                <div class="text-2xl md:text-3xl font-bold mt-1 text-red-400" id="pending-total">0</div>
+                <div class="text-xs text-red-300/70 mt-1">存款 + 對沖 + 結算</div>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+            <button onclick="switchTab('hedge')" data-tab="hedge" class="tab-btn active px-4 py-2.5 bg-slate-800 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i>對沖管理
+                <span class="bg-black/20 px-1.5 rounded-full text-xs" id="tab-count-hedge">0</span>
+            </button>
+            <button onclick="switchTab('deposits')" data-tab="deposits" class="tab-btn px-4 py-2.5 bg-slate-800 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2">
+                <i class="fa-solid fa-wallet"></i>存款審批
+                <span class="bg-black/20 px-1.5 rounded-full text-xs" id="tab-count-deposits">0</span>
+            </button>
+            <button onclick="switchTab('settlement')" data-tab="settlement" class="tab-btn px-4 py-2.5 bg-slate-800 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2">
+                <i class="fa-solid fa-flag-checkered"></i>票據結算
+                <span class="bg-black/20 px-1.5 rounded-full text-xs" id="tab-count-settlement">0</span>
+            </button>
+            <button onclick="switchTab('bets')" data-tab="bets" class="tab-btn px-4 py-2.5 bg-slate-800 rounded-xl text-sm font-medium whitespace-nowrap flex items-center gap-2">
+                <i class="fa-solid fa-list"></i>所有注單
             </button>
         </div>
 
-        <button onclick="handleLogout()"
-           class="md:hidden w-9 h-9 flex items-center justify-center bg-slate-800 rounded-full flex-shrink-0">
-            <i class="fa-solid fa-right-from-bracket text-sm"></i>
-        </button>
-    </nav>
-
-    <div class="px-4 md:px-8 pt-4 md:pt-8 pb-2 max-w-6xl mx-auto w-full">
-        <h1 class="text-xl md:text-3xl font-bold">用積分挑戰真實市場</h1>
-        <p class="text-slate-400 text-sm md:text-base mt-0.5">高賠率預測 · 即時對沖</p>
-    </div>
-
-    <div id="loading-state" class="text-center py-16 text-slate-400">
-        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-        <p class="text-sm">載入票據中...</p>
-    </div>
-
-    <div id="empty-state" class="hidden text-center py-16 text-slate-400">
-        <i class="fa-solid fa-inbox text-3xl mb-3"></i>
-        <p class="text-sm">目前沒有任何票據</p>
-    </div>
-
-    <div class="px-4 md:px-8 pb-4 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5 hidden" id="tickets-grid">
-    </div>
-
-    <div class="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex items-center justify-between z-40 safe-bottom md:hidden">
-        <div class="flex items-center gap-x-2 min-w-0">
-            <i class="fa-solid fa-coins text-yellow-400 flex-shrink-0"></i>
-            <span class="text-sm text-slate-400 whitespace-nowrap" id="username-display">玩家</span>
-            <span class="text-lg font-bold text-emerald-400 whitespace-nowrap" id="user-points">0</span>
+        <div id="panel-hedge" class="bg-slate-900 border border-slate-700 rounded-2xl p-4 md:p-6">
+            <h3 class="font-bold text-lg mb-4">需要對沖嘅票據</h3>
+            <div class="space-y-3" id="urgent-tickets"></div>
         </div>
-        <span class="text-xs text-slate-500">即時積分</span>
+
+        <div id="panel-deposits" class="hidden bg-slate-900 border border-slate-700 rounded-2xl p-4 md:p-6">
+            <h3 class="font-bold text-lg mb-4">待審批存款請求</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="py-3 px-3 text-left">編號</th>
+                            <th class="py-3 px-3 text-left">玩家</th>
+                            <th class="py-3 px-3 text-left">金額</th>
+                            <th class="py-3 px-3 text-left">付款憑證</th>
+                            <th class="py-3 px-3 text-left">提交時間</th>
+                            <th class="py-3 px-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deposits-table-body" class="divide-y divide-slate-800"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="panel-settlement" class="hidden bg-slate-900 border border-slate-700 rounded-2xl p-4 md:p-6">
+            <h3 class="font-bold text-lg mb-4">到期待結算票據</h3>
+            <div class="space-y-3" id="settlement-tickets"></div>
+        </div>
+
+        <div id="panel-bets" class="hidden bg-slate-900 border border-slate-700 rounded-2xl p-4 md:p-6">
+            <h3 class="font-bold text-lg mb-4">所有注單記錄</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="py-3 px-3 text-left">編號</th>
+                            <th class="py-3 px-3 text-left">票據</th>
+                            <th class="py-3 px-3 text-left">玩家</th>
+                            <th class="py-3 px-3 text-left">方向</th>
+                            <th class="py-3 px-3 text-left">金額</th>
+                            <th class="py-3 px-3 text-left">賠率</th>
+                            <th class="py-3 px-3 text-left">結果</th>
+                            <th class="py-3 px-3 text-left">派彩</th>
+                            <th class="py-3 px-3 text-left">對沖狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-bets-table-body" class="divide-y divide-slate-800"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <div id="bet-modal" onclick="if (event.target.id === 'bet-modal') closeBetModal()"
-         class="hidden fixed inset-0 bg-black/70 z-[100] flex items-end md:items-center justify-center">
-        <div id="bet-sheet" onclick="event.stopImmediatePropagation()" 
-             class="sheet-enter w-full md:max-w-md bg-slate-900 border-t md:border border-slate-700 rounded-t-3xl md:rounded-3xl p-5 md:p-6 pb-8 md:pb-6 safe-bottom max-h-[85vh] overflow-y-auto">
-            
-            <div class="w-10 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 md:hidden"></div>
+    <div id="settle-modal" onclick="if(event.target.id==='settle-modal') closeSettleModal()" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[100] px-4">
+        <div onclick="event.stopImmediatePropagation()" class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-1" id="settle-modal-title"></h3>
+            <p class="text-sm text-slate-400 mb-5" id="settle-modal-info"></p>
 
-            <h3 class="text-lg font-bold mb-1" id="modal-ticket-name"></h3>
-            <p class="text-sm text-slate-400 mb-1" id="modal-ticket-expires"></p>
-            <p class="text-xs text-slate-500 mb-5" id="modal-ticket-pool"></p>
+            <label class="block text-sm text-slate-400 mb-2">實際結算價格</label>
+            <input type="number" id="settlement-price" class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3 text-lg outline-none mb-5">
 
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-slate-400 mb-2">下注金額（積分）</label>
-                    <input type="number" id="bet-amount" value="1000" inputmode="numeric"
-                           class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-4 text-2xl font-bold outline-none">
-                    <div class="grid grid-cols-4 gap-2 mt-3" id="quick-amounts">
-                        <button type="button" data-amt="500" class="quick-amt py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">500</button>
-                        <button type="button" data-amt="1000" class="quick-amt py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">1000</button>
-                        <button type="button" data-amt="5000" class="quick-amt py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">5000</button>
-                        <button type="button" onclick="setMaxAmount()" class="py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">最大</button>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800 rounded-2xl p-4 flex justify-between items-center">
-                    <span class="text-slate-400 text-sm">預計可贏得</span>
-                    <span class="text-2xl font-bold text-emerald-400" id="potential-win">0</span>
-                </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="confirmSettle('lost')" class="py-3.5 bg-red-600 hover:bg-red-500 rounded-2xl font-bold">條件不成立（Lost）</button>
+                <button onclick="confirmSettle('won')" class="py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold">條件成立（Won）</button>
             </div>
-
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeBetModal()" 
-                        class="flex-1 py-4 bg-slate-700 active:bg-slate-600 hover:bg-slate-600 rounded-2xl font-medium">
-                    取消
-                </button>
-                <button id="confirm-bet-btn" onclick="placeBet()" 
-                        class="flex-[2] py-4 bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500 rounded-2xl font-bold text-lg">
-                    確認下注
-                </button>
-            </div>
+            <button onclick="closeSettleModal()" class="w-full mt-3 py-3 bg-slate-700 hover:bg-slate-600 rounded-2xl">取消</button>
         </div>
     </div>
 
@@ -158,343 +153,219 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd2lrdmNkcG5uc3N1aWJxdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NDQyMjIsImV4cCI6MjEwMDAyMDIyMn0.apRzZ09BilPfafDEtdOFvbhde2QcxhF5zf0MxZ59du4';
         const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        let tickets = [];
-        let currentTicket = null;
-        let currentUser = null; // { user_id, username, points_balance }
+        let tickets = [], unhedgedBets = [], allBets = [], deposits = [], houseAccount = null;
+        let settleTargetTicketId = null;
 
-        // ---------- 登入狀態管理 ----------
-        function saveSession(user) {
-            localStorage.setItem('fp_session', JSON.stringify(user));
-            currentUser = user;
+        function nowHK() { return new Date(); }
+        function formatFullTime(d) { return d ? new Date(d).toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'; }
+        function formatTimeAgo(d) {
+            if (!d) return '從未';
+            const diffMin = Math.floor((nowHK()-new Date(d))/60000);
+            if (diffMin<1) return '剛剛';
+            if (diffMin<60) return `${diffMin}分鐘前`;
+            return `${Math.floor(diffMin/60)}小時${diffMin%60}分前`;
         }
 
-        function loadSession() {
-            const raw = localStorage.getItem('fp_session');
-            if (!raw) return null;
-            try { return JSON.parse(raw); } catch { return null; }
+        function switchTab(tab) {
+            ['hedge','deposits','settlement','bets'].forEach(t=>{
+                document.getElementById('panel-'+t).classList.toggle('hidden', t!==tab);
+                document.querySelector(`[data-tab="${t}"]`).classList.toggle('active', t===tab);
+            });
         }
 
-        function clearSession() {
-            localStorage.removeItem('fp_session');
-            currentUser = null;
-        }
-
-        function showAuthError(msg) {
-            const el = document.getElementById('auth-error');
-            el.textContent = msg;
-            el.classList.remove('hidden');
-        }
-
-        function hideAuthError() {
-            document.getElementById('auth-error').classList.add('hidden');
-        }
-
-        async function handleLogin() {
-            const username = document.getElementById('auth-username').value.trim();
-            const password = document.getElementById('auth-password').value;
-            if (!username || !password) { showAuthError('請輸入帳號同密碼'); return; }
-
-            const btn = document.getElementById('login-btn');
-            btn.disabled = true;
-            btn.textContent = '登入中...';
-
-            const { data, error } = await sb.rpc('login_user', { p_username: username, p_password: password });
-
-            btn.disabled = false;
-            btn.textContent = '登入';
-
-            if (error || !data.success) {
-                showAuthError(data ? data.message : '登入失敗，請稍後再試');
-                return;
-            }
-
-            hideAuthError();
-            saveSession({ user_id: data.user_id, username: data.username, points_balance: data.points_balance });
-            enterGame();
-        }
-
-        async function handleRegister() {
-            const username = document.getElementById('auth-username').value.trim();
-            const password = document.getElementById('auth-password').value;
-            if (!username || !password) { showAuthError('請輸入帳號同密碼'); return; }
-            if (password.length < 4) { showAuthError('密碼至少需要 4 個字元'); return; }
-
-            const btn = document.getElementById('register-btn');
-            btn.disabled = true;
-            btn.textContent = '註冊中...';
-
-            const { data, error } = await sb.rpc('register_user', { p_username: username, p_password: password });
-
-            btn.disabled = false;
-            btn.textContent = '註冊新帳號（送 10,000 積分）';
-
-            if (error || !data.success) {
-                showAuthError(data ? data.message : '註冊失敗，請稍後再試');
-                return;
-            }
-
-            hideAuthError();
-            saveSession({ user_id: data.user_id, username: username, points_balance: data.points_balance });
-            enterGame();
-        }
-
-        function handleLogout() {
-            if (!confirm('確定要登出嗎？')) return;
-            clearSession();
-            document.getElementById('auth-screen').classList.remove('hidden');
-            document.getElementById('auth-username').value = '';
-            document.getElementById('auth-password').value = '';
-        }
-
-        function enterGame() {
-            document.getElementById('auth-screen').classList.add('hidden');
-            refreshUserDisplay();
-            loadTickets();
-        }
-
-        function refreshUserDisplay() {
-            if (!currentUser) return;
-            const points = Number(currentUser.points_balance).toLocaleString();
-            document.getElementById('user-points').textContent = points;
-            document.getElementById('user-points-desktop').textContent = points;
-            document.getElementById('username-display').textContent = currentUser.username;
-            document.getElementById('username-display-desktop').textContent = currentUser.username;
-        }
-
-        // ---------- 票據載入邏輯（維持原有） ----------
-        async function loadTickets() {
-            const { data, error } = await sb.from('tickets').select('*').order('id', { ascending: true });
-            if (error) {
-                console.error('讀取失敗:', error);
-                document.getElementById('loading-state').innerHTML = '<p class="text-red-400 text-sm">載入失敗，請檢查連線設定</p>';
-                return;
-            }
-            tickets = data.map(mapTicket);
-            document.getElementById('loading-state').classList.add('hidden');
-            if (tickets.length === 0) {
-                document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('tickets-grid').classList.add('hidden');
-            } else {
-                document.getElementById('empty-state').classList.add('hidden');
-                document.getElementById('tickets-grid').classList.remove('hidden');
-                renderTickets();
-            }
+        async function fetchAll() {
+            const [ticketsRes, betsRes, depositsRes, houseRes] = await Promise.all([
+                sb.from('tickets').select('*').order('id'),
+                sb.from('bets').select('*').order('created_at', {ascending:false}),
+                sb.from('deposits').select('*, users(username)').eq('status','pending').order('requested_at'),
+                sb.from('house_account').select('*').limit(1).single()
+            ]);
+            tickets = (ticketsRes.data||[]).map(mapTicket);
+            allBets = betsRes.data||[];
+            unhedgedBets = allBets.filter(b=>!b.is_hedged && b.result==='pending');
+            deposits = depositsRes.data||[];
+            houseAccount = houseRes.data;
+            updateUI();
+            document.getElementById('last-update').textContent = '最後刷新：'+formatFullTime(nowHK());
         }
 
         function mapTicket(t) {
-            return {
-                id: t.id, name: t.name, odds: Number(t.odds), expires: formatExpiry(t.expires_at),
-                currentUnhedged: Number(t.unhedged) || 0, currentPrice: t.current_price,
-                direction: t.direction || 'bullish', maxLimit: Number(t.max_limit) || 500000,
-                accumulatedBet: Number(t.accumulated_bet) || 0
-            };
+            return { id:t.id, name:t.name, direction:t.direction||'bullish', unhedged:Number(t.unhedged)||0,
+                lastHedge:t.last_hedge||t.created_at, expiresAt:t.expires_at, maxLimit:Number(t.max_limit)||500000,
+                accumulatedBet:Number(t.accumulated_bet)||0, status:t.status||'open' };
         }
 
-        function formatExpiry(dateStr) {
-            if (!dateStr) return '未設定';
-            const d = new Date(dateStr);
-            const now = new Date();
-            const sameDay = d.toDateString() === now.toDateString();
-            const timeStr = d.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
-            if (sameDay) return `今日 ${timeStr}`;
-            return `${d.getMonth() + 1}月${d.getDate()}日 ${timeStr}`;
+        sb.channel('admin-all').on('postgres_changes',{event:'*',schema:'public',table:'tickets'},fetchAll)
+          .on('postgres_changes',{event:'*',schema:'public',table:'bets'},fetchAll)
+          .on('postgres_changes',{event:'*',schema:'public',table:'deposits'},fetchAll)
+          .on('postgres_changes',{event:'*',schema:'public',table:'house_account'},fetchAll)
+          .subscribe();
+
+        function updateUI() {
+            renderStats();
+            renderUrgentTickets();
+            renderDeposits();
+            renderSettlementTickets();
+            renderAllBets();
         }
 
-        sb.channel('tickets-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
-                if (payload.eventType === 'UPDATE') {
-                    const updated = mapTicket(payload.new);
-                    const index = tickets.findIndex(t => t.id === updated.id);
-                    if (index !== -1) tickets[index] = updated;
-                    renderTickets();
-                } else if (payload.eventType === 'INSERT') {
-                    tickets.push(mapTicket(payload.new));
-                    document.getElementById('empty-state').classList.add('hidden');
-                    document.getElementById('tickets-grid').classList.remove('hidden');
-                    renderTickets();
-                } else if (payload.eventType === 'DELETE') {
-                    tickets = tickets.filter(t => t.id !== payload.old.id);
-                    if (tickets.length === 0) {
-                        document.getElementById('empty-state').classList.remove('hidden');
-                        document.getElementById('tickets-grid').classList.add('hidden');
-                    } else renderTickets();
-                }
-            })
-            .subscribe();
+        function renderStats() {
+            if (houseAccount) {
+                document.getElementById('house-balance').textContent = '$'+Number(houseAccount.balance).toLocaleString();
+                document.getElementById('house-deposits-payouts').textContent =
+                    '$'+Number(houseAccount.total_deposits).toLocaleString()+' / $'+Number(houseAccount.total_payouts).toLocaleString();
+            }
+            const totalUnhedged = tickets.reduce((s,t)=>s+t.unhedged,0);
+            document.getElementById('total-unhedged').textContent = '$'+totalUnhedged.toLocaleString();
+            document.getElementById('unhedged-bet-count').textContent = `${unhedgedBets.length} 張未對沖注單`;
 
-        function renderTickets() {
-            const container = document.getElementById('tickets-grid');
+            const settleCount = tickets.filter(t=>t.status==='closed' || (t.status==='open' && new Date(t.expiresAt)<nowHK())).length;
+            document.getElementById('tab-count-hedge').textContent = unhedgedBets.length;
+            document.getElementById('tab-count-deposits').textContent = deposits.length;
+            document.getElementById('tab-count-settlement').textContent = settleCount;
+            document.getElementById('pending-total').textContent = unhedgedBets.length + deposits.length + settleCount;
+        }
+
+        function isUrgent(ticket) {
+            if (ticket.unhedged<=0) return false;
+            const minutes = Math.floor((nowHK()-new Date(ticket.lastHedge))/60000);
+            return ticket.unhedged>=1000 || minutes>60;
+        }
+
+        function renderUrgentTickets() {
+            const container = document.getElementById('urgent-tickets');
+            const urgent = tickets.filter(isUrgent);
+            if (urgent.length===0) { container.innerHTML = '<p class="text-slate-500 text-sm text-center py-8">目前沒有需要對沖嘅票據</p>'; return; }
             container.innerHTML = '';
-
-            tickets.forEach(ticket => {
-                const isBullish = ticket.direction === 'bullish';
-                const borderColor = isBullish ? 'border-emerald-600/50' : 'border-red-600/50';
-                const oddsColor = isBullish ? 'text-emerald-400' : 'text-red-400';
-                const btnColor = isBullish ? 'bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500' : 'bg-red-600 active:bg-red-500 hover:bg-red-500';
-                const badge = isBullish
-                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400"><i class="fa-solid fa-arrow-trend-up mr-1"></i>看漲</span>'
-                    : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400"><i class="fa-solid fa-arrow-trend-down mr-1"></i>看跌</span>';
-
-                const remaining = ticket.maxLimit - ticket.accumulatedBet;
-                const percent = Math.min(100, Math.round((ticket.accumulatedBet / ticket.maxLimit) * 100));
-                const isFull = remaining <= 0;
-
-                const card = document.createElement('div');
-                card.className = `ticket-card bg-slate-900 border ${borderColor} rounded-2xl p-4 md:p-5 active:bg-slate-800/50 flex flex-col`;
-                card.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="pr-3 flex-1 min-w-0">
-                            <div class="mb-1.5">${badge}</div>
-                            <div class="font-bold text-base md:text-lg leading-snug break-words">${ticket.name}</div>
-                            <div class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-clock mr-1"></i>${ticket.expires}</div>
+            urgent.forEach(ticket=>{
+                const betsForTicket = unhedgedBets.filter(b=>b.ticket_id===ticket.id);
+                const betRows = betsForTicket.map(b=>`
+                    <div class="flex justify-between items-center text-xs py-1.5 px-3 bg-slate-950/60 rounded-lg mt-1">
+                        <span class="text-slate-300">${b.player_name}</span>
+                        <span class="text-slate-400">${b.direction==='bullish'?'看漲':'看跌'}</span>
+                        <span class="font-bold text-yellow-400">$${Number(b.amount).toLocaleString()}</span>
+                    </div>`).join('');
+                const div = document.createElement('div');
+                div.className = 'bg-slate-950/70 border border-red-600 rounded-xl p-4';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center flex-wrap gap-2">
+                        <div>
+                            <div class="font-bold">${ticket.name}</div>
+                            <div class="text-xs text-slate-400 mt-0.5">未對沖：<span class="text-yellow-400 font-bold">$${ticket.unhedged.toLocaleString()}</span> ｜ ${betsForTicket.length}張注單 ｜ 距上次對沖：${formatTimeAgo(ticket.lastHedge)}</div>
                         </div>
-                        <div class="text-right flex-shrink-0 pl-2">
-                            <div class="text-2xl md:text-3xl font-bold ${oddsColor}">${ticket.odds}x</div>
-                            <div class="text-[10px] text-slate-500">賠率</div>
-                        </div>
+                        <button onclick="performHedge(${ticket.id})" class="px-5 py-2 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm">立即對沖（全額）</button>
                     </div>
-
-                    <div class="mt-auto">
-                        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3">
-                            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
-                        </div>
-                        <div class="flex justify-between text-[11px] text-slate-500 mt-1">
-                            <span>已累積 $${ticket.accumulatedBet.toLocaleString()}</span>
-                            <span>剩餘 $${remaining.toLocaleString()}</span>
-                        </div>
-
-                        <button class="w-full mt-3 py-3 ${btnColor} rounded-xl text-sm font-bold text-white">
-                            ${isFull ? '已額滿' : '立即下注'}
-                        </button>
-                    </div>
+                    ${betsForTicket.length?`<div class="mt-2 space-y-0.5">${betRows}</div>`:''}
                 `;
-                card.querySelector('button').onclick = (e) => { e.stopPropagation(); if (!isFull) openBetModal(ticket.id); };
-                container.appendChild(card);
+                container.appendChild(div);
             });
         }
 
-        function openBetModal(ticketId) {
-            currentTicket = tickets.find(t => t.id === ticketId);
-            if (!currentTicket) return;
+        function renderDeposits() {
+            const tbody = document.getElementById('deposits-table-body');
+            if (deposits.length===0) { tbody.innerHTML='<tr><td colspan="6" class="py-6 text-center text-slate-500">沒有待審批存款</td></tr>'; return; }
+            tbody.innerHTML = deposits.map(d=>`
+                <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                    <td class="py-3 px-3 text-slate-400">#${d.id}</td>
+                    <td class="py-3 px-3 font-medium">${d.users?.username||'—'}</td>
+                    <td class="py-3 px-3 font-bold text-emerald-400">$${Number(d.amount).toLocaleString()}</td>
+                    <td class="py-3 px-3 text-slate-400">${d.payment_reference||'—'}</td>
+                    <td class="py-3 px-3 text-slate-400">${formatFullTime(d.requested_at)}</td>
+                    <td class="py-3 px-3 text-right space-x-2">
+                        <button onclick="rejectDeposit(${d.id})" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">拒絕</button>
+                        <button onclick="approveDeposit(${d.id})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-bold">批准</button>
+                    </td>
+                </tr>`).join('');
+        }
 
-            const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
-            document.getElementById('modal-ticket-name').textContent = currentTicket.name;
-            document.getElementById('modal-ticket-expires').textContent = currentTicket.expires;
-            document.getElementById('modal-ticket-pool').textContent =
-                `上限 $${currentTicket.maxLimit.toLocaleString()} · 已累積 $${currentTicket.accumulatedBet.toLocaleString()} · 剩餘 $${remaining.toLocaleString()}`;
+        function renderSettlementTickets() {
+            const container = document.getElementById('settlement-tickets');
+            const due = tickets.filter(t=>(t.status==='closed'||t.status==='open') && new Date(t.expiresAt)<nowHK());
+            if (due.length===0) { container.innerHTML='<p class="text-slate-500 text-sm text-center py-8">目前沒有到期待結算票據</p>'; return; }
+            container.innerHTML = due.map(t=>{
+                const betCount = allBets.filter(b=>b.ticket_id===t.id && b.result==='pending').length;
+                return `
+                <div class="bg-slate-950/70 border border-orange-600 rounded-xl p-4 flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <div class="font-bold">${t.name}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">已到期：${formatFullTime(t.expiresAt)} ｜ ${betCount}張未結算注單 ｜ 方向：${t.direction==='bullish'?'看漲':'看跌'}</div>
+                    </div>
+                    <button onclick="openSettleModal(${t.id}, '${t.name.replace(/'/g,"\\'")}')" class="px-5 py-2 bg-orange-600 hover:bg-orange-500 rounded-xl font-bold text-sm">結算</button>
+                </div>`;
+            }).join('');
+        }
 
-            const amountInput = document.getElementById('bet-amount');
-            amountInput.value = 1000;
-            updatePotentialWin();
-            amountInput.oninput = () => { updatePotentialWin(); syncQuickAmountActive(); };
+        function renderAllBets() {
+            const tbody = document.getElementById('all-bets-table-body');
+            if (allBets.length===0) { tbody.innerHTML='<tr><td colspan="9" class="py-6 text-center text-slate-500">沒有注單記錄</td></tr>'; return; }
+            tbody.innerHTML = allBets.slice(0,100).map(b=>{
+                const ticket = tickets.find(t=>t.id===b.ticket_id);
+                const resultBadge = b.result==='won' ? '<span class="text-emerald-400">贏</span>' : b.result==='lost' ? '<span class="text-red-400">輸</span>' : '<span class="text-slate-500">待定</span>';
+                return `
+                <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                    <td class="py-2.5 px-3 text-slate-400">#${b.id}</td>
+                    <td class="py-2.5 px-3">${ticket?ticket.name:'#'+b.ticket_id}</td>
+                    <td class="py-2.5 px-3 font-medium">${b.player_name}</td>
+                    <td class="py-2.5 px-3">${b.direction==='bullish'?'看漲':'看跌'}</td>
+                    <td class="py-2.5 px-3 text-yellow-400">$${Number(b.amount).toLocaleString()}</td>
+                    <td class="py-2.5 px-3">${b.odds}x</td>
+                    <td class="py-2.5 px-3">${resultBadge}</td>
+                    <td class="py-2.5 px-3 text-emerald-400">${b.payout>0?'$'+Number(b.payout).toLocaleString():'—'}</td>
+                    <td class="py-2.5 px-3">${b.is_hedged?'<span class="text-emerald-400">已對沖</span>':'<span class="text-yellow-400">未對沖</span>'}</td>
+                </tr>`;
+            }).join('');
+        }
 
-            document.querySelectorAll('.quick-amt').forEach(btn => {
-                btn.onclick = () => {
-                    amountInput.value = btn.dataset.amt;
-                    updatePotentialWin();
-                    syncQuickAmountActive();
-                };
+        async function performHedge(ticketId) {
+            const { error } = await sb.rpc('hedge_ticket', { p_ticket_id: ticketId });
+            if (error) { alert('對沖失敗：'+error.message); return; }
+            fetchAll();
+        }
+
+        async function approveDeposit(depositId) {
+            if (!confirm('確認已收到真實款項，批准此存款？')) return;
+            const { data, error } = await sb.rpc('approve_deposit', { p_deposit_id: depositId, p_admin_name: 'admin' });
+            if (error || !data.success) { alert('批准失敗：'+(data?data.message:error.message)); return; }
+            fetchAll();
+        }
+
+        async function rejectDeposit(depositId) {
+            if (!confirm('確認拒絕此存款請求？')) return;
+            const { error } = await sb.rpc('reject_deposit', { p_deposit_id: depositId, p_admin_name: 'admin' });
+            if (error) { alert('操作失敗：'+error.message); return; }
+            fetchAll();
+        }
+
+        function openSettleModal(ticketId, ticketName) {
+            settleTargetTicketId = ticketId;
+            document.getElementById('settle-modal-title').textContent = ticketName;
+            document.getElementById('settle-modal-info').textContent = '請輸入實際結算價格，並判斷條件是否成立';
+            document.getElementById('settlement-price').value = '';
+            document.getElementById('settle-modal').classList.remove('hidden');
+            document.getElementById('settle-modal').classList.add('flex');
+        }
+
+        function closeSettleModal() {
+            document.getElementById('settle-modal').classList.add('hidden');
+            document.getElementById('settle-modal').classList.remove('flex');
+        }
+
+        async function confirmSettle(outcome) {
+            const price = parseFloat(document.getElementById('settlement-price').value);
+            if (isNaN(price)) { alert('請輸入結算價格'); return; }
+            if (!confirm(`確認結算為「${outcome==='won'?'條件成立':'條件不成立'}」？此操作不可逆。`)) return;
+
+            const { data, error } = await sb.rpc('settle_ticket', {
+                p_ticket_id: settleTargetTicketId, p_outcome: outcome, p_settlement_price: price
             });
-            syncQuickAmountActive();
-
-            document.getElementById('bet-modal').classList.remove('hidden');
-            document.getElementById('bet-modal').classList.add('flex');
+            if (error || !data.success) { alert('結算失敗：'+(data?data.message:error.message)); return; }
+            alert(`結算完成！共處理 ${data.bets_settled} 張注單，總派彩 $${Number(data.total_payout).toLocaleString()}`);
+            closeSettleModal();
+            fetchAll();
         }
 
-        function syncQuickAmountActive() {
-            const val = document.getElementById('bet-amount').value;
-            document.querySelectorAll('.quick-amt').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.amt === val);
-            });
-        }
-
-        function setMaxAmount() {
-            const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
-            const maxAmt = Math.min(currentUser.points_balance, remaining);
-            document.getElementById('bet-amount').value = maxAmt;
-            updatePotentialWin();
-            syncQuickAmountActive();
-        }
-
-        function updatePotentialWin() {
-            const amount = parseInt(document.getElementById('bet-amount').value) || 0;
-            const win = Math.floor(amount * currentTicket.odds);
-            document.getElementById('potential-win').textContent = win.toLocaleString() + ' 積分';
-        }
-
-        function closeBetModal() {
-            document.getElementById('bet-modal').classList.add('hidden');
-            document.getElementById('bet-modal').classList.remove('flex');
-        }
-
-        // ---------- 核心：下注時透過 place_bet RPC 真正扣減 users.points_balance ----------
-        async function placeBet() {
-            const amount = parseInt(document.getElementById('bet-amount').value);
-            if (!amount || amount < 100) { alert('請輸入至少 100 積分'); return; }
-
-            if (amount > currentUser.points_balance) { alert('積分不足！'); return; }
-
-            const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
-            if (amount > remaining) { alert('超過剩餘空間！'); return; }
-
-            const confirmBtn = document.getElementById('confirm-bet-btn');
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '處理中...';
-
-            const potentialWin = Math.floor(amount * currentTicket.odds);
-
-            const { data, error } = await sb.rpc('place_bet', {
-                p_ticket_id: currentTicket.id,
-                p_user_id: currentUser.user_id,
-                p_amount: amount,
-                p_direction: currentTicket.direction,
-                p_odds: currentTicket.odds,
-                p_potential_win: potentialWin
-            });
-
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '確認下注';
-
-            if (error || !data.success) {
-                alert('下注失敗：' + (data ? data.message : error.message));
-                return;
-            }
-
-            currentUser.points_balance = data.new_balance;
-            saveSession(currentUser);
-            refreshUserDisplay();
-
-            currentTicket.currentUnhedged += amount;
-            currentTicket.accumulatedBet += amount;
-
-            closeBetModal();
-            renderTickets();
-            showToast(`下注成功！已扣除 ${amount} 積分`);
-        }
-
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = 'fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-[200] text-sm max-w-[90%]';
-            toast.innerHTML = `<i class="fa-solid fa-check-circle"></i><span>${message}</span>`;
-            document.body.appendChild(toast);
-            setTimeout(() => {
-                toast.style.transition = 'all 0.3s ease';
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 2200);
-        }
-
-        function init() {
-            const session = loadSession();
-            if (session) {
-                currentUser = session;
-                enterGame();
-            } else {
-                document.getElementById('auth-screen').classList.remove('hidden');
-            }
-        }
-
-        window.onload = init;
+        setInterval(fetchAll, 30000);
+        fetchAll();
     </script>
 </body>
 </html>
