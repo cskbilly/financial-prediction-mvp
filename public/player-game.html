@@ -21,6 +21,8 @@
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
         .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
         .tab-btn.active { background-color: #059669; color: white; }
+        .countdown-urgent { color: #f87171 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 pb-20 md:pb-0">
@@ -53,9 +55,6 @@
     <nav class="bg-slate-900 border-b border-slate-700 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-40 gap-2">
         <span class="font-bold text-base md:text-xl whitespace-nowrap flex-shrink-0">金融預測區</span>
         <div class="hidden md:flex items-center gap-x-3 flex-shrink-0">
-            <a href="../admin/admin-dashboard.html" class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
-                <i class="fa-solid fa-tachometer-alt"></i><span>後台監控</span>
-            </a>
             <button onclick="openHistoryModal()" class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
                 <i class="fa-solid fa-clock-rotate-left"></i><span>歷史記錄</span>
             </button>
@@ -247,6 +246,7 @@
         const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         let tickets = [], currentTicket = null, currentUser = null, selectedFile = null;
+        let countdownInterval = null;
 
         function saveSession(user) { localStorage.setItem('fp_session', JSON.stringify(user)); currentUser = user; }
         function loadSession() { const raw = localStorage.getItem('fp_session'); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } }
@@ -295,6 +295,8 @@
             document.getElementById('auth-screen').classList.add('hidden');
             refreshUserDisplay();
             loadTickets();
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(updateAllCountdowns, 1000);
         }
 
         function refreshUserDisplay() {
@@ -465,18 +467,37 @@
             else { document.getElementById('empty-state').classList.add('hidden'); document.getElementById('tickets-grid').classList.remove('hidden'); renderTickets(); }
         }
         function mapTicket(t) {
-            return { id: t.id, name: t.name, odds: Number(t.odds), expires: formatExpiry(t.expires_at),
+            return { id: t.id, name: t.name, odds: Number(t.odds), expiresAt: t.expires_at,
                 currentUnhedged: Number(t.unhedged) || 0, direction: t.direction || 'bullish',
                 maxLimit: Number(t.max_limit) || 500000, accumulatedBet: Number(t.accumulated_bet) || 0 };
         }
-        function formatExpiry(dateStr) {
-            if (!dateStr) return '未設定';
-            const d = new Date(dateStr); const now = new Date();
-            const sameDay = d.toDateString() === now.toDateString();
-            const timeStr = d.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
-            return sameDay ? `今日 ${timeStr}` : `${d.getMonth()+1}月${d.getDate()}日 ${timeStr}`;
-        }
         sb.channel('tickets-changes').on('postgres_changes', {event:'*', schema:'public', table:'tickets'}, () => loadTickets()).subscribe();
+
+        // ---------- Live 倒數計時 ----------
+        function formatCountdown(expiresAt) {
+            if (!expiresAt) return { text: '未設定', urgent: false, expired: false };
+            const diffMs = new Date(expiresAt) - new Date();
+            if (diffMs <= 0) return { text: '已到期', urgent: true, expired: true };
+            const totalSec = Math.floor(diffMs / 1000);
+            const days = Math.floor(totalSec / 86400);
+            const hours = Math.floor((totalSec % 86400) / 3600);
+            const mins = Math.floor((totalSec % 3600) / 60);
+            const secs = totalSec % 60;
+            let text;
+            if (days > 0) text = `${days}天 ${hours}時後截止`;
+            else if (hours > 0) text = `${hours}時 ${mins}分後截止`;
+            else text = `${mins}分 ${secs}秒後截止`;
+            const urgent = diffMs < 5 * 60 * 1000;
+            return { text, urgent, expired: false };
+        }
+        function updateAllCountdowns() {
+            document.querySelectorAll('[data-expires]').forEach(el => {
+                const { text, urgent, expired } = formatCountdown(el.dataset.expires);
+                el.textContent = text;
+                el.classList.toggle('countdown-urgent', urgent && !expired);
+                el.classList.toggle('text-red-500', expired);
+            });
+        }
 
         function renderTickets() {
             const container = document.getElementById('tickets-grid');
@@ -491,6 +512,7 @@
                 const remaining = ticket.maxLimit - ticket.accumulatedBet;
                 const percent = Math.min(100, Math.round((ticket.accumulatedBet / ticket.maxLimit) * 100));
                 const isFull = remaining <= 0;
+                const { text: countdownText, urgent, expired } = formatCountdown(ticket.expiresAt);
                 const card = document.createElement('div');
                 card.className = `ticket-card bg-slate-900 border ${borderColor} rounded-2xl p-4 md:p-5 active:bg-slate-800/50 flex flex-col`;
                 card.innerHTML = `
@@ -498,7 +520,9 @@
                         <div class="pr-3 flex-1 min-w-0">
                             <div class="mb-1.5">${badge}</div>
                             <div class="font-bold text-base md:text-lg leading-snug break-words">${ticket.name}</div>
-                            <div class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-clock mr-1"></i>${ticket.expires}</div>
+                            <div class="text-xs text-slate-400 mt-1 ${urgent && !expired ? 'countdown-urgent' : ''} ${expired ? 'text-red-500' : ''}" data-expires="${ticket.expiresAt}">
+                                <i class="fa-regular fa-clock mr-1"></i>${countdownText}
+                            </div>
                         </div>
                         <div class="text-right flex-shrink-0 pl-2">
                             <div class="text-2xl md:text-3xl font-bold ${oddsColor}">${ticket.odds}x</div>
@@ -510,9 +534,9 @@
                         <div class="flex justify-between text-[11px] text-slate-500 mt-1">
                             <span>已累積 $${ticket.accumulatedBet.toLocaleString()}</span><span>剩餘 $${remaining.toLocaleString()}</span>
                         </div>
-                        <button class="w-full mt-3 py-3 ${btnColor} rounded-xl text-sm font-bold text-white">${isFull ? '已額滿' : '立即下注'}</button>
+                        <button class="w-full mt-3 py-3 ${btnColor} rounded-xl text-sm font-bold text-white" ${expired ? 'disabled' : ''}>${expired ? '已截止' : (isFull ? '已額滿' : '立即下注')}</button>
                     </div>`;
-                card.querySelector('button').onclick = (e) => { e.stopPropagation(); if (!isFull) openBetModal(ticket.id); };
+                card.querySelector('button').onclick = (e) => { e.stopPropagation(); if (!isFull && !expired) openBetModal(ticket.id); };
                 container.appendChild(card);
             });
         }
@@ -522,7 +546,8 @@
             if (!currentTicket) return;
             const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
             document.getElementById('modal-ticket-name').textContent = currentTicket.name;
-            document.getElementById('modal-ticket-expires').textContent = currentTicket.expires;
+            const { text: countdownText } = formatCountdown(currentTicket.expiresAt);
+            document.getElementById('modal-ticket-expires').textContent = countdownText;
             document.getElementById('modal-ticket-pool').textContent = `上限 $${currentTicket.maxLimit.toLocaleString()} · 已累積 $${currentTicket.accumulatedBet.toLocaleString()} · 剩餘 $${remaining.toLocaleString()}`;
             const amountInput = document.getElementById('bet-amount');
             amountInput.value = 1000;
@@ -591,5 +616,11 @@
         }
         window.onload = init;
     </script>
+
+    <!-- 低調 Admin 入口：右下角細圓點 -->
+    <a href="../admin/admin-dashboard.html" 
+       title="Admin"
+       class="fixed bottom-4 right-4 z-30 w-3 h-3 rounded-full bg-slate-700/40 hover:bg-slate-600 opacity-30 hover:opacity-100 transition-all duration-300">
+    </a>
 </body>
 </html>
