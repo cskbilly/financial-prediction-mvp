@@ -12,7 +12,8 @@
 </head>
 <body class="bg-slate-950 text-slate-200">
     <div class="max-w-4xl mx-auto px-6 py-16">
-
+        
+        <!-- 標題區 -->
         <div class="text-center mb-12">
             <div class="inline-flex items-center gap-x-3 mb-4">
                 <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
@@ -27,7 +28,11 @@
             </div>
         </div>
 
-        <div class="max-w-md mx-auto">
+
+        <!-- 兩個入口卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            
+            <!-- 玩家遊戲頁面 -->
             <a href="public/player-game.html" 
                class="group block bg-slate-900 border border-slate-700 hover:border-emerald-500 rounded-3xl p-8 transition-all hover:-translate-y-1">
                 <div class="flex items-start gap-x-4">
@@ -44,8 +49,31 @@
                     </div>
                 </div>
             </a>
+
+
+            <!-- 後台監控頁面 -->
+            <a href="admin/admin-dashboard.html" 
+               class="group block bg-slate-900 border border-slate-700 hover:border-orange-500 rounded-3xl p-8 transition-all hover:-translate-y-1">
+                <div class="flex items-start gap-x-4">
+                    <div class="w-14 h-14 bg-orange-600/20 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-orange-600/30 transition-colors">
+                        <i class="fa-solid fa-tachometer-alt text-orange-400 text-3xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold mb-2 group-hover:text-orange-400 transition-colors">後台監控中心</h3>
+                        <p class="text-slate-400 mb-4">即時監控未對沖金額、對沖觸發條件與風險管理</p>
+                        <div class="inline-flex items-center gap-x-2 text-orange-400 font-medium">
+                            <span>進入後台</span>
+                            <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+
+
         </div>
 
+
+        <!-- 說明區 -->
         <div class="mt-12 max-w-2xl mx-auto text-center">
             <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
                 <h4 class="font-bold mb-2">這是什麼？</h4>
@@ -57,12 +85,7 @@
             </div>
         </div>
 
+
     </div>
-
-    <a href="admin/admin-dashboard.html" 
-       title="Admin"
-       class="fixed bottom-4 right-4 z-30 w-3 h-3 rounded-full bg-slate-700/40 hover:bg-slate-600 opacity-30 hover:opacity-100 transition-all duration-300">
-    </a>
-
 </body>
 </html>
