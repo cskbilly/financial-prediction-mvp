@@ -230,14 +230,37 @@
                            class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-xl px-4 py-3 outline-none">
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-400 mb-1.5">下注上限（積分）</label>
+                    <label class="block text-sm text-slate-400 mb-1.5">下注上限（積分，總池）</label>
                     <input type="number" id="new-ticket-limit" value="500000"
+                           class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-xl px-4 py-3 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1.5">單注金額上限（積分）</label>
+                    <input type="number" id="new-ticket-max-order" value="20000"
+                           class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-xl px-4 py-3 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1.5">單一玩家累積上限（積分）</label>
+                    <input type="number" id="new-ticket-max-player" value="50000"
                            class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-xl px-4 py-3 outline-none">
                 </div>
             </div>
             <div class="flex gap-3 mt-6">
                 <button onclick="closeCreateTicketModal()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-2xl font-medium">取消</button>
                 <button onclick="submitCreateTicket()" class="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold">建立票據</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-odds-modal" onclick="if(event.target.id==='edit-odds-modal') closeEditOddsModal()" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[100] px-4">
+        <div onclick="event.stopImmediatePropagation()" class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-1" id="edit-odds-title"></h3>
+            <p class="text-sm text-slate-400 mb-5">改動只影響新落注，已落注嘅注單賠率不受影響</p>
+            <label class="block text-sm text-slate-400 mb-2">目前賠率：<span id="edit-odds-current" class="text-emerald-400 font-bold"></span></label>
+            <input type="number" step="0.01" id="edit-odds-new" class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3 text-lg outline-none mb-5">
+            <div class="flex gap-3">
+                <button onclick="closeEditOddsModal()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-2xl font-medium">取消</button>
+                <button onclick="submitEditOdds()" class="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold">更新賠率</button>
             </div>
         </div>
     </div>
@@ -249,6 +272,7 @@
 
         let tickets = [], unhedgedBets = [], allBets = [], deposits = [], withdrawals = [], houseAccount = null, dailyReport = [];
         let settleTargetTicketId = null;
+        let editOddsTargetId = null;
         let currentAdmin = null;
 
         function saveAdminSession(admin) { sessionStorage.setItem('fp_admin_session', JSON.stringify(admin)); currentAdmin = admin; }
@@ -457,8 +481,10 @@
                     <td class="py-2.5 px-3 text-slate-400">${formatFullTime(t.expiresAt)}</td>
                     <td class="py-2.5 px-3 ${statusColor[t.status]||''}">${statusLabel[t.status]||t.status}</td>
                     <td class="py-2.5 px-3">$${t.accumulatedBet.toLocaleString()}</td>
-                    <td class="py-2.5 px-3 text-right">
-                        ${t.status==='open'||t.status==='closed' ? `<button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : '—'}
+                    <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                        ${t.status==='open'||t.status==='closed' ? `
+                        <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
+                        <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : '—'}
                     </td>
                 </tr>`).join('');
         }
@@ -564,6 +590,8 @@
             document.getElementById('new-ticket-name').value = '';
             document.getElementById('new-ticket-odds').value = '1.85';
             document.getElementById('new-ticket-limit').value = '500000';
+            document.getElementById('new-ticket-max-order').value = '20000';
+            document.getElementById('new-ticket-max-player').value = '50000';
             document.getElementById('new-ticket-expires').value = '';
             document.getElementById('create-ticket-modal').classList.remove('hidden');
             document.getElementById('create-ticket-modal').classList.add('flex');
@@ -578,13 +606,39 @@
             const odds = parseFloat(document.getElementById('new-ticket-odds').value);
             const expiresLocal = document.getElementById('new-ticket-expires').value;
             const maxLimit = parseFloat(document.getElementById('new-ticket-limit').value);
+            const maxPerOrder = parseFloat(document.getElementById('new-ticket-max-order').value);
+            const maxPerPlayer = parseFloat(document.getElementById('new-ticket-max-player').value);
             if (!name) { alert('請輸入票據名稱'); return; }
             if (!odds || odds <= 1) { alert('賠率必須大於 1'); return; }
             if (!expiresLocal) { alert('請設定到期時間'); return; }
             const expiresISO = new Date(expiresLocal).toISOString();
-            const { data, error } = await sb.rpc('create_ticket', { p_name: name, p_direction: direction, p_odds: odds, p_expires_at: expiresISO, p_max_limit: maxLimit });
+            const { data, error } = await sb.rpc('create_ticket', {
+                p_name: name, p_direction: direction, p_odds: odds, p_expires_at: expiresISO, p_max_limit: maxLimit,
+                p_max_bet_per_player: maxPerPlayer, p_max_bet_per_order: maxPerOrder
+            });
             if (error || !data.success) { alert('建立失敗：'+(data?data.message:error.message)); return; }
             closeCreateTicketModal(); fetchAll();
+        }
+
+        function openEditOddsModal(ticketId, ticketName, currentOdds) {
+            editOddsTargetId = ticketId;
+            document.getElementById('edit-odds-title').textContent = ticketName;
+            document.getElementById('edit-odds-current').textContent = currentOdds + 'x';
+            document.getElementById('edit-odds-new').value = currentOdds;
+            document.getElementById('edit-odds-modal').classList.remove('hidden');
+            document.getElementById('edit-odds-modal').classList.add('flex');
+        }
+        function closeEditOddsModal() {
+            document.getElementById('edit-odds-modal').classList.add('hidden');
+            document.getElementById('edit-odds-modal').classList.remove('flex');
+        }
+        async function submitEditOdds() {
+            const newOdds = parseFloat(document.getElementById('edit-odds-new').value);
+            if (!newOdds || newOdds <= 1) { alert('賠率必須大於 1'); return; }
+            const { data, error } = await sb.rpc('update_ticket_odds', { p_ticket_id: editOddsTargetId, p_new_odds: newOdds, p_admin_name: currentAdmin.username });
+            if (error || !data.success) { alert('更新失敗：'+(data?data.message:error.message)); return; }
+            closeEditOddsModal();
+            fetchAll();
         }
 
         function init() {
