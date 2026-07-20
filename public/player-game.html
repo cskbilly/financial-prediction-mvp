@@ -20,6 +20,7 @@
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
         .status-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+        .tab-btn.active { background-color: #059669; color: white; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 pb-20 md:pb-0">
@@ -33,42 +34,36 @@
                 <h1 class="text-2xl font-bold">金融預測區</h1>
                 <p class="text-slate-400 text-sm mt-1">登入或註冊開始遊戲</p>
             </div>
-
             <div class="space-y-3">
                 <input type="text" id="auth-username" placeholder="帳號名稱" autocomplete="username"
                        class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3.5 outline-none">
                 <input type="password" id="auth-password" placeholder="密碼" autocomplete="current-password"
                        class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3.5 outline-none">
             </div>
-
             <p id="auth-error" class="hidden text-red-400 text-sm mt-3 text-center"></p>
-
             <div class="space-y-3 mt-5">
                 <button id="login-btn" onclick="handleLogin()" 
-                        class="w-full py-3.5 bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500 rounded-2xl font-bold">
-                    登入
-                </button>
+                        class="w-full py-3.5 bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500 rounded-2xl font-bold">登入</button>
                 <button id="register-btn" onclick="handleRegister()" 
-                        class="w-full py-3.5 bg-slate-800 active:bg-slate-700 hover:bg-slate-700 rounded-2xl font-medium">
-                    註冊新帳號（送 10,000 積分）
-                </button>
+                        class="w-full py-3.5 bg-slate-800 active:bg-slate-700 hover:bg-slate-700 rounded-2xl font-medium">註冊新帳號（送 10,000 積分）</button>
             </div>
         </div>
     </div>
 
     <nav class="bg-slate-900 border-b border-slate-700 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-40 gap-2">
         <span class="font-bold text-base md:text-xl whitespace-nowrap flex-shrink-0">金融預測區</span>
-
         <div class="hidden md:flex items-center gap-x-3 flex-shrink-0">
-            <a href="../admin/admin-dashboard.html" 
-               class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
-                <i class="fa-solid fa-tachometer-alt"></i>
-                <span>後台監控</span>
+            <a href="../admin/admin-dashboard.html" class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-tachometer-alt"></i><span>後台監控</span>
             </a>
-            <button onclick="openDepositModal()"
-                    class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
-                <i class="fa-solid fa-plus"></i>
-                <span>存款</span>
+            <button onclick="openHistoryModal()" class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-clock-rotate-left"></i><span>歷史記錄</span>
+            </button>
+            <button onclick="openWithdrawModal()" class="text-sm px-3 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-money-bill-transfer"></i><span>提款</span>
+            </button>
+            <button onclick="openDepositModal()" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg flex items-center gap-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-plus"></i><span>存款</span>
             </button>
             <div class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-2xl flex items-center gap-x-2 whitespace-nowrap">
                 <span class="text-sm text-slate-400" id="username-display-desktop"></span>
@@ -76,20 +71,21 @@
                 <span class="text-sm text-slate-400">積分</span>
                 <span class="text-xl font-bold text-emerald-400" id="user-points-desktop">0</span>
             </div>
-            <button onclick="handleLogout()" 
-                    class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-2xl text-sm font-medium flex items-center gap-x-2 whitespace-nowrap">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                <span>登出</span>
+            <button onclick="handleLogout()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-2xl text-sm font-medium flex items-center gap-x-2 whitespace-nowrap">
+                <i class="fa-solid fa-right-from-bracket"></i><span>登出</span>
             </button>
         </div>
-
         <div class="md:hidden flex items-center gap-x-2 flex-shrink-0">
-            <button onclick="openDepositModal()"
-               class="w-9 h-9 flex items-center justify-center bg-blue-600 rounded-full">
+            <button onclick="openHistoryModal()" class="w-9 h-9 flex items-center justify-center bg-slate-800 rounded-full">
+                <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+            </button>
+            <button onclick="openWithdrawModal()" class="w-9 h-9 flex items-center justify-center bg-orange-600 rounded-full">
+                <i class="fa-solid fa-money-bill-transfer text-sm"></i>
+            </button>
+            <button onclick="openDepositModal()" class="w-9 h-9 flex items-center justify-center bg-blue-600 rounded-full">
                 <i class="fa-solid fa-plus text-sm"></i>
             </button>
-            <button onclick="handleLogout()"
-               class="w-9 h-9 flex items-center justify-center bg-slate-800 rounded-full">
+            <button onclick="handleLogout()" class="w-9 h-9 flex items-center justify-center bg-slate-800 rounded-full">
                 <i class="fa-solid fa-right-from-bracket text-sm"></i>
             </button>
         </div>
@@ -100,28 +96,13 @@
         <p class="text-slate-400 text-sm md:text-base mt-0.5">高賠率預測 · 即時對沖</p>
     </div>
 
-    <div id="my-deposits-section" class="hidden px-4 md:px-8 pb-2 max-w-6xl mx-auto w-full">
-        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-sm font-bold text-slate-300">我的存款記錄</h3>
-                <button onclick="toggleMyDeposits()" class="text-xs text-slate-500" id="toggle-deposits-btn">收起</button>
-            </div>
-            <div id="my-deposits-list" class="space-y-2"></div>
-        </div>
-    </div>
-
     <div id="loading-state" class="text-center py-16 text-slate-400">
-        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-        <p class="text-sm">載入票據中...</p>
+        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p class="text-sm">載入票據中...</p>
     </div>
-
     <div id="empty-state" class="hidden text-center py-16 text-slate-400">
-        <i class="fa-solid fa-inbox text-3xl mb-3"></i>
-        <p class="text-sm">目前沒有任何票據</p>
+        <i class="fa-solid fa-inbox text-3xl mb-3"></i><p class="text-sm">目前沒有任何票據</p>
     </div>
-
-    <div class="px-4 md:px-8 pb-4 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5 hidden" id="tickets-grid">
-    </div>
+    <div class="px-4 md:px-8 pb-4 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5 hidden" id="tickets-grid"></div>
 
     <div class="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex items-center justify-between z-40 safe-bottom md:hidden">
         <div class="flex items-center gap-x-2 min-w-0">
@@ -129,41 +110,34 @@
             <span class="text-sm text-slate-400 whitespace-nowrap" id="username-display">玩家</span>
             <span class="text-lg font-bold text-emerald-400 whitespace-nowrap" id="user-points">0</span>
         </div>
-        <button onclick="toggleMyDepositsFromBottom()" class="text-xs text-slate-500 underline">存款記錄</button>
     </div>
 
+    <!-- 存款 Modal -->
     <div id="deposit-modal" onclick="if (event.target.id === 'deposit-modal') closeDepositModal()"
          class="hidden fixed inset-0 bg-black/70 z-[100] flex items-end md:items-center justify-center">
         <div onclick="event.stopImmediatePropagation()" 
              class="sheet-enter w-full md:max-w-md bg-slate-900 border-t md:border border-slate-700 rounded-t-3xl md:rounded-3xl p-5 md:p-6 pb-8 md:pb-6 safe-bottom max-h-[85vh] overflow-y-auto">
-
             <div class="w-10 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 md:hidden"></div>
-
             <h3 class="text-lg font-bold mb-1">申請存款</h3>
             <p class="text-xs text-slate-500 mb-5">請先轉數到指定帳戶，再上傳付款憑證截圖，Admin核實後會即時發放積分</p>
-
             <div class="bg-slate-800 rounded-2xl p-4 mb-4 text-sm space-y-1">
                 <div class="flex justify-between"><span class="text-slate-400">收款方式</span><span>FPS 轉數快</span></div>
                 <div class="flex justify-between"><span class="text-slate-400">帳戶號碼</span><span class="font-mono">1234-5678-XXXX</span></div>
                 <div class="flex justify-between"><span class="text-slate-400">收款人</span><span>Financial Prediction Ltd</span></div>
             </div>
-
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-slate-400 mb-2">存款金額（積分）</label>
                     <input type="number" id="deposit-amount" value="1000" inputmode="numeric"
                            class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-4 text-2xl font-bold outline-none">
                 </div>
-
                 <div>
                     <label class="block text-sm text-slate-400 mb-2">上傳付款憑證截圖</label>
-                    <input type="file" id="deposit-file" accept="image/*" capture="environment"
-                           class="hidden" onchange="handleFileSelect(event)">
+                    <input type="file" id="deposit-file" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
                     <button type="button" onclick="document.getElementById('deposit-file').click()"
                             class="w-full py-8 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center gap-2 text-slate-500 hover:border-emerald-500 hover:text-emerald-400"
                             id="upload-trigger-btn">
-                        <i class="fa-solid fa-camera text-2xl"></i>
-                        <span class="text-sm">拍照或選擇圖片</span>
+                        <i class="fa-solid fa-camera text-2xl"></i><span class="text-sm">拍照或選擇圖片</span>
                     </button>
                     <div id="file-preview-container" class="hidden mt-3">
                         <img id="file-preview-img" class="w-full max-h-48 object-contain rounded-xl border border-slate-700">
@@ -171,31 +145,78 @@
                     </div>
                 </div>
             </div>
-
             <div class="flex gap-3 mt-6">
-                <button onclick="closeDepositModal()" 
-                        class="flex-1 py-4 bg-slate-700 active:bg-slate-600 hover:bg-slate-600 rounded-2xl font-medium">
-                    取消
-                </button>
-                <button id="confirm-deposit-btn" onclick="submitDeposit()" 
-                        class="flex-[2] py-4 bg-blue-600 active:bg-blue-500 hover:bg-blue-500 rounded-2xl font-bold text-lg">
-                    提交存款申請
-                </button>
+                <button onclick="closeDepositModal()" class="flex-1 py-4 bg-slate-700 active:bg-slate-600 hover:bg-slate-600 rounded-2xl font-medium">取消</button>
+                <button id="confirm-deposit-btn" onclick="submitDeposit()" class="flex-[2] py-4 bg-blue-600 active:bg-blue-500 hover:bg-blue-500 rounded-2xl font-bold text-lg">提交存款申請</button>
             </div>
         </div>
     </div>
 
+    <!-- 提款 Modal -->
+    <div id="withdraw-modal" onclick="if (event.target.id === 'withdraw-modal') closeWithdrawModal()"
+         class="hidden fixed inset-0 bg-black/70 z-[100] flex items-end md:items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" 
+             class="sheet-enter w-full md:max-w-md bg-slate-900 border-t md:border border-slate-700 rounded-t-3xl md:rounded-3xl p-5 md:p-6 pb-8 md:pb-6 safe-bottom max-h-[85vh] overflow-y-auto">
+            <div class="w-10 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 md:hidden"></div>
+            <h3 class="text-lg font-bold mb-1">申請提款</h3>
+            <p class="text-xs text-slate-500 mb-5">提交後積分會即時扣除，Admin處理後會將款項轉賬至你提供嘅帳戶</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">提款金額（積分）</label>
+                    <input type="number" id="withdraw-amount" value="1000" inputmode="numeric"
+                           class="w-full bg-slate-800 border border-slate-700 focus:border-orange-500 rounded-2xl px-4 py-4 text-2xl font-bold outline-none">
+                    <p class="text-xs text-slate-500 mt-1.5">目前餘額：<span id="withdraw-available">0</span> 積分</p>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">收款方式</label>
+                    <select id="withdraw-method" class="w-full bg-slate-800 border border-slate-700 focus:border-orange-500 rounded-2xl px-4 py-3.5 outline-none">
+                        <option value="FPS">FPS 轉數快</option>
+                        <option value="Bank Transfer">銀行轉賬</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">收款帳戶資料</label>
+                    <input type="text" id="withdraw-details" placeholder="電話號碼 / 銀行帳戶號碼"
+                           class="w-full bg-slate-800 border border-slate-700 focus:border-orange-500 rounded-2xl px-4 py-3.5 outline-none">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeWithdrawModal()" class="flex-1 py-4 bg-slate-700 active:bg-slate-600 hover:bg-slate-600 rounded-2xl font-medium">取消</button>
+                <button id="confirm-withdraw-btn" onclick="submitWithdrawal()" class="flex-[2] py-4 bg-orange-600 active:bg-orange-500 hover:bg-orange-500 rounded-2xl font-bold text-lg">提交提款申請</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 歷史記錄 Modal -->
+    <div id="history-modal" onclick="if (event.target.id === 'history-modal') closeHistoryModal()"
+         class="hidden fixed inset-0 bg-black/70 z-[100] flex items-end md:items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" 
+             class="sheet-enter w-full md:max-w-2xl bg-slate-900 border-t md:border border-slate-700 rounded-t-3xl md:rounded-3xl p-5 md:p-6 pb-8 md:pb-6 safe-bottom max-h-[85vh] overflow-y-auto">
+            <div class="w-10 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 md:hidden"></div>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">我的歷史記錄</h3>
+                <button onclick="closeHistoryModal()" class="text-slate-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <button onclick="switchHistoryTab('bets')" data-htab="bets" class="tab-btn active px-3 py-1.5 bg-slate-800 rounded-lg text-xs font-medium">注單記錄</button>
+                <button onclick="switchHistoryTab('deposits')" data-htab="deposits" class="tab-btn px-3 py-1.5 bg-slate-800 rounded-lg text-xs font-medium">存款記錄</button>
+                <button onclick="switchHistoryTab('withdrawals')" data-htab="withdrawals" class="tab-btn px-3 py-1.5 bg-slate-800 rounded-lg text-xs font-medium">提款記錄</button>
+            </div>
+            <div id="history-bets" class="space-y-2"></div>
+            <div id="history-deposits" class="hidden space-y-2"></div>
+            <div id="history-withdrawals" class="hidden space-y-2"></div>
+        </div>
+    </div>
+
+    <!-- 下注 Modal -->
     <div id="bet-modal" onclick="if (event.target.id === 'bet-modal') closeBetModal()"
          class="hidden fixed inset-0 bg-black/70 z-[100] flex items-end md:items-center justify-center">
         <div id="bet-sheet" onclick="event.stopImmediatePropagation()" 
              class="sheet-enter w-full md:max-w-md bg-slate-900 border-t md:border border-slate-700 rounded-t-3xl md:rounded-3xl p-5 md:p-6 pb-8 md:pb-6 safe-bottom max-h-[85vh] overflow-y-auto">
-            
             <div class="w-10 h-1.5 bg-slate-700 rounded-full mx-auto mb-4 md:hidden"></div>
-
             <h3 class="text-lg font-bold mb-1" id="modal-ticket-name"></h3>
             <p class="text-sm text-slate-400 mb-1" id="modal-ticket-expires"></p>
             <p class="text-xs text-slate-500 mb-5" id="modal-ticket-pool"></p>
-
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-slate-400 mb-2">下注金額（積分）</label>
@@ -208,22 +229,14 @@
                         <button type="button" onclick="setMaxAmount()" class="py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">最大</button>
                     </div>
                 </div>
-
                 <div class="bg-slate-800 rounded-2xl p-4 flex justify-between items-center">
                     <span class="text-slate-400 text-sm">預計可贏得</span>
                     <span class="text-2xl font-bold text-emerald-400" id="potential-win">0</span>
                 </div>
             </div>
-
             <div class="flex gap-3 mt-6">
-                <button onclick="closeBetModal()" 
-                        class="flex-1 py-4 bg-slate-700 active:bg-slate-600 hover:bg-slate-600 rounded-2xl font-medium">
-                    取消
-                </button>
-                <button id="confirm-bet-btn" onclick="placeBet()" 
-                        class="flex-[2] py-4 bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500 rounded-2xl font-bold text-lg">
-                    確認下注
-                </button>
+                <button onclick="closeBetModal()" class="flex-1 py-4 bg-slate-700 active:bg-slate-600 hover:bg-slate-600 rounded-2xl font-medium">取消</button>
+                <button id="confirm-bet-btn" onclick="placeBet()" class="flex-[2] py-4 bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500 rounded-2xl font-bold text-lg">確認下注</button>
             </div>
         </div>
     </div>
@@ -233,12 +246,7 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhjd2lrdmNkcG5uc3N1aWJxdmJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ0NDQyMjIsImV4cCI6MjEwMDAyMDIyMn0.apRzZ09BilPfafDEtdOFvbhde2QcxhF5zf0MxZ59du4';
         const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        let tickets = [];
-        let currentTicket = null;
-        let currentUser = null;
-        let selectedFile = null;
-        let myDeposits = [];
-        let myDepositsExpanded = true;
+        let tickets = [], currentTicket = null, currentUser = null, selectedFile = null;
 
         function saveSession(user) { localStorage.setItem('fp_session', JSON.stringify(user)); currentUser = user; }
         function loadSession() { const raw = localStorage.getItem('fp_session'); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } }
@@ -287,7 +295,6 @@
             document.getElementById('auth-screen').classList.add('hidden');
             refreshUserDisplay();
             loadTickets();
-            loadMyDeposits();
         }
 
         function refreshUserDisplay() {
@@ -299,19 +306,17 @@
             document.getElementById('username-display-desktop').textContent = currentUser.username;
         }
 
-        // ---------- 存款功能 ----------
+        // ---------- 存款 ----------
         function openDepositModal() {
             document.getElementById('deposit-amount').value = 1000;
             clearFileSelection();
             document.getElementById('deposit-modal').classList.remove('hidden');
             document.getElementById('deposit-modal').classList.add('flex');
         }
-
         function closeDepositModal() {
             document.getElementById('deposit-modal').classList.add('hidden');
             document.getElementById('deposit-modal').classList.remove('flex');
         }
-
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -324,192 +329,168 @@
             };
             reader.readAsDataURL(file);
         }
-
         function clearFileSelection() {
             selectedFile = null;
             document.getElementById('deposit-file').value = '';
             document.getElementById('file-preview-container').classList.add('hidden');
             document.getElementById('upload-trigger-btn').classList.remove('hidden');
         }
-
         async function submitDeposit() {
             const amount = parseInt(document.getElementById('deposit-amount').value);
             if (!amount || amount < 100) { alert('請輸入至少 100 積分'); return; }
             if (!selectedFile) { alert('請上傳付款憑證截圖'); return; }
-
             const btn = document.getElementById('confirm-deposit-btn');
-            btn.disabled = true;
-            btn.textContent = '上傳中...';
-
+            btn.disabled = true; btn.textContent = '上傳中...';
             try {
                 const fileExt = selectedFile.name.split('.').pop();
                 const fileName = `deposit_${currentUser.user_id}_${Date.now()}.${fileExt}`;
-
-                const { data: uploadData, error: uploadError } = await sb.storage
-                    .from('payment-proofs')
-                    .upload(fileName, selectedFile);
-
-                if (uploadError) {
-                    alert('圖片上傳失敗：' + uploadError.message);
-                    btn.disabled = false;
-                    btn.textContent = '提交存款申請';
-                    return;
-                }
-
+                const { error: uploadError } = await sb.storage.from('payment-proofs').upload(fileName, selectedFile);
+                if (uploadError) { alert('圖片上傳失敗：' + uploadError.message); btn.disabled = false; btn.textContent = '提交存款申請'; return; }
                 const { data: urlData } = sb.storage.from('payment-proofs').getPublicUrl(fileName);
-                const fileUrl = urlData.publicUrl;
-
-                const { data, error } = await sb.rpc('request_deposit', {
-                    p_user_id: currentUser.user_id,
-                    p_amount: amount,
-                    p_payment_reference: fileUrl
-                });
-
-                btn.disabled = false;
-                btn.textContent = '提交存款申請';
-
-                if (error || !data.success) {
-                    alert('提交失敗：' + (data ? data.message : error.message));
-                    return;
-                }
-
+                const { data, error } = await sb.rpc('request_deposit', { p_user_id: currentUser.user_id, p_amount: amount, p_payment_reference: urlData.publicUrl });
+                btn.disabled = false; btn.textContent = '提交存款申請';
+                if (error || !data.success) { alert('提交失敗：' + (data ? data.message : error.message)); return; }
                 closeDepositModal();
                 showToast('存款申請已提交，等待 Admin 核實');
-                loadMyDeposits();
             } catch (err) {
-                btn.disabled = false;
-                btn.textContent = '提交存款申請';
+                btn.disabled = false; btn.textContent = '提交存款申請';
                 alert('發生錯誤：' + err.message);
             }
         }
 
-        async function loadMyDeposits() {
-            const { data, error } = await sb
-                .from('deposits')
-                .select('*')
-                .eq('user_id', currentUser.user_id)
-                .order('requested_at', { ascending: false })
-                .limit(5);
-            if (error) { console.error(error); return; }
-            myDeposits = data || [];
-            renderMyDeposits();
+        // ---------- 提款 ----------
+        function openWithdrawModal() {
+            document.getElementById('withdraw-amount').value = Math.min(1000, currentUser.points_balance);
+            document.getElementById('withdraw-available').textContent = Number(currentUser.points_balance).toLocaleString();
+            document.getElementById('withdraw-details').value = '';
+            document.getElementById('withdraw-modal').classList.remove('hidden');
+            document.getElementById('withdraw-modal').classList.add('flex');
+        }
+        function closeWithdrawModal() {
+            document.getElementById('withdraw-modal').classList.add('hidden');
+            document.getElementById('withdraw-modal').classList.remove('flex');
+        }
+        async function submitWithdrawal() {
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+            const method = document.getElementById('withdraw-method').value;
+            const details = document.getElementById('withdraw-details').value.trim();
+            if (!amount || amount < 100) { alert('請輸入至少 100 積分'); return; }
+            if (amount > currentUser.points_balance) { alert('積分不足'); return; }
+            if (!details) { alert('請填寫收款帳戶資料'); return; }
+
+            const btn = document.getElementById('confirm-withdraw-btn');
+            btn.disabled = true; btn.textContent = '提交中...';
+            const { data, error } = await sb.rpc('request_withdrawal', {
+                p_user_id: currentUser.user_id, p_amount: amount, p_payout_method: method, p_payout_details: details
+            });
+            btn.disabled = false; btn.textContent = '提交提款申請';
+            if (error || !data.success) { alert('提交失敗：' + (data ? data.message : error.message)); return; }
+
+            currentUser.points_balance = data.new_balance;
+            saveSession(currentUser);
+            refreshUserDisplay();
+            closeWithdrawModal();
+            showToast('提款申請已提交，積分已暫扣，等待 Admin 處理');
         }
 
-        function renderMyDeposits() {
-            const section = document.getElementById('my-deposits-section');
-            const list = document.getElementById('my-deposits-list');
-            if (myDeposits.length === 0) { section.classList.add('hidden'); return; }
-            section.classList.remove('hidden');
-
-            list.innerHTML = myDeposits.map(d => {
-                const statusMap = {
-                    pending: '<span class="status-badge bg-yellow-900/50 text-yellow-400">審批中</span>',
-                    approved: '<span class="status-badge bg-emerald-900/50 text-emerald-400">已批准</span>',
-                    rejected: '<span class="status-badge bg-red-900/50 text-red-400">已拒絕</span>'
-                };
-                return `
-                <div class="flex justify-between items-center text-sm py-2 border-b border-slate-800 last:border-0">
-                    <span class="text-slate-400">${new Date(d.requested_at).toLocaleDateString('zh-HK')}</span>
-                    <span class="font-bold">$${Number(d.amount).toLocaleString()}</span>
-                    ${statusMap[d.status] || ''}
+        // ---------- 歷史記錄 ----------
+        function openHistoryModal() {
+            document.getElementById('history-modal').classList.remove('hidden');
+            document.getElementById('history-modal').classList.add('flex');
+            switchHistoryTab('bets');
+        }
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.add('hidden');
+            document.getElementById('history-modal').classList.remove('flex');
+        }
+        async function switchHistoryTab(tab) {
+            ['bets','deposits','withdrawals'].forEach(t => {
+                document.getElementById('history-'+t).classList.toggle('hidden', t!==tab);
+                document.querySelector(`[data-htab="${t}"]`).classList.toggle('active', t===tab);
+            });
+            if (tab === 'bets') await loadBetHistory();
+            if (tab === 'deposits') await loadDepositHistory();
+            if (tab === 'withdrawals') await loadWithdrawalHistory();
+        }
+        async function loadBetHistory() {
+            const container = document.getElementById('history-bets');
+            container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">載入中...</p>';
+            const { data, error } = await sb.rpc('get_player_history', { p_user_id: currentUser.user_id, p_limit: 50 });
+            if (error || !data || data.length === 0) { container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">暫無注單記錄</p>'; return; }
+            container.innerHTML = data.map(b => {
+                const badge = b.result === 'won' ? '<span class="status-badge bg-emerald-900/50 text-emerald-400">贏</span>'
+                    : b.result === 'lost' ? '<span class="status-badge bg-red-900/50 text-red-400">輸</span>'
+                    : b.result === 'refunded' ? '<span class="status-badge bg-slate-700 text-slate-300">已退款</span>'
+                    : '<span class="status-badge bg-yellow-900/50 text-yellow-400">待定</span>';
+                return `<div class="bg-slate-800 rounded-xl p-3 flex justify-between items-center text-sm">
+                    <div><div class="font-medium">${b.ticket_name}</div><div class="text-xs text-slate-500">${b.direction==='bullish'?'看漲':'看跌'} · ${b.odds}x · ${new Date(b.created_at).toLocaleDateString('zh-HK')}</div></div>
+                    <div class="text-right"><div class="font-bold">$${Number(b.amount).toLocaleString()}</div>${badge}</div>
                 </div>`;
             }).join('');
         }
-
-        function toggleMyDeposits() {
-            myDepositsExpanded = !myDepositsExpanded;
-            document.getElementById('my-deposits-list').classList.toggle('hidden', !myDepositsExpanded);
-            document.getElementById('toggle-deposits-btn').textContent = myDepositsExpanded ? '收起' : '展開';
+        async function loadDepositHistory() {
+            const container = document.getElementById('history-deposits');
+            container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">載入中...</p>';
+            const { data, error } = await sb.from('deposits').select('*').eq('user_id', currentUser.user_id).order('requested_at', {ascending:false}).limit(50);
+            if (error || !data || data.length === 0) { container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">暫無存款記錄</p>'; return; }
+            const statusMap = { pending: '審批中', approved: '已批准', rejected: '已拒絕' };
+            const colorMap = { pending: 'bg-yellow-900/50 text-yellow-400', approved: 'bg-emerald-900/50 text-emerald-400', rejected: 'bg-red-900/50 text-red-400' };
+            container.innerHTML = data.map(d => `<div class="bg-slate-800 rounded-xl p-3 flex justify-between items-center text-sm">
+                <div class="text-slate-400">${new Date(d.requested_at).toLocaleDateString('zh-HK')}</div>
+                <div class="font-bold">$${Number(d.amount).toLocaleString()}</div>
+                <span class="status-badge ${colorMap[d.status]}">${statusMap[d.status]}</span>
+            </div>`).join('');
+        }
+        async function loadWithdrawalHistory() {
+            const container = document.getElementById('history-withdrawals');
+            container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">載入中...</p>';
+            const { data, error } = await sb.from('withdrawals').select('*').eq('user_id', currentUser.user_id).order('requested_at', {ascending:false}).limit(50);
+            if (error || !data || data.length === 0) { container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">暫無提款記錄</p>'; return; }
+            const statusMap = { pending: '處理中', approved: '已完成', rejected: '已拒絕' };
+            const colorMap = { pending: 'bg-yellow-900/50 text-yellow-400', approved: 'bg-emerald-900/50 text-emerald-400', rejected: 'bg-red-900/50 text-red-400' };
+            container.innerHTML = data.map(w => `<div class="bg-slate-800 rounded-xl p-3 flex justify-between items-center text-sm">
+                <div class="text-slate-400">${new Date(w.requested_at).toLocaleDateString('zh-HK')}</div>
+                <div class="font-bold">$${Number(w.amount).toLocaleString()}</div>
+                <span class="status-badge ${colorMap[w.status]}">${statusMap[w.status]}</span>
+            </div>`).join('');
         }
 
-        function toggleMyDepositsFromBottom() {
-            document.getElementById('my-deposits-section').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        sb.channel('my-deposits-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'deposits' }, () => {
-                if (currentUser) loadMyDeposits();
-            })
-            .subscribe();
-
-        // ---------- 票據載入邏輯 ----------
+        // ---------- 票據 ----------
         async function loadTickets() {
             const { data, error } = await sb.from('tickets').select('*').order('id', { ascending: true });
-            if (error) {
-                console.error('讀取失敗:', error);
-                document.getElementById('loading-state').innerHTML = '<p class="text-red-400 text-sm">載入失敗，請檢查連線設定</p>';
-                return;
-            }
-            tickets = data.map(mapTicket);
+            if (error) { console.error(error); document.getElementById('loading-state').innerHTML = '<p class="text-red-400 text-sm">載入失敗</p>'; return; }
+            tickets = data.filter(t => t.status !== 'cancelled' && t.status !== 'settled').map(mapTicket);
             document.getElementById('loading-state').classList.add('hidden');
-            if (tickets.length === 0) {
-                document.getElementById('empty-state').classList.remove('hidden');
-                document.getElementById('tickets-grid').classList.add('hidden');
-            } else {
-                document.getElementById('empty-state').classList.add('hidden');
-                document.getElementById('tickets-grid').classList.remove('hidden');
-                renderTickets();
-            }
+            if (tickets.length === 0) { document.getElementById('empty-state').classList.remove('hidden'); document.getElementById('tickets-grid').classList.add('hidden'); }
+            else { document.getElementById('empty-state').classList.add('hidden'); document.getElementById('tickets-grid').classList.remove('hidden'); renderTickets(); }
         }
-
         function mapTicket(t) {
-            return {
-                id: t.id, name: t.name, odds: Number(t.odds), expires: formatExpiry(t.expires_at),
-                currentUnhedged: Number(t.unhedged) || 0, currentPrice: t.current_price,
-                direction: t.direction || 'bullish', maxLimit: Number(t.max_limit) || 500000,
-                accumulatedBet: Number(t.accumulated_bet) || 0
-            };
+            return { id: t.id, name: t.name, odds: Number(t.odds), expires: formatExpiry(t.expires_at),
+                currentUnhedged: Number(t.unhedged) || 0, direction: t.direction || 'bullish',
+                maxLimit: Number(t.max_limit) || 500000, accumulatedBet: Number(t.accumulated_bet) || 0 };
         }
-
         function formatExpiry(dateStr) {
             if (!dateStr) return '未設定';
-            const d = new Date(dateStr);
-            const now = new Date();
+            const d = new Date(dateStr); const now = new Date();
             const sameDay = d.toDateString() === now.toDateString();
             const timeStr = d.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
-            if (sameDay) return `今日 ${timeStr}`;
-            return `${d.getMonth() + 1}月${d.getDate()}日 ${timeStr}`;
+            return sameDay ? `今日 ${timeStr}` : `${d.getMonth()+1}月${d.getDate()}日 ${timeStr}`;
         }
-
-        sb.channel('tickets-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
-                if (payload.eventType === 'UPDATE') {
-                    const updated = mapTicket(payload.new);
-                    const index = tickets.findIndex(t => t.id === updated.id);
-                    if (index !== -1) tickets[index] = updated;
-                    renderTickets();
-                } else if (payload.eventType === 'INSERT') {
-                    tickets.push(mapTicket(payload.new));
-                    document.getElementById('empty-state').classList.add('hidden');
-                    document.getElementById('tickets-grid').classList.remove('hidden');
-                    renderTickets();
-                } else if (payload.eventType === 'DELETE') {
-                    tickets = tickets.filter(t => t.id !== payload.old.id);
-                    if (tickets.length === 0) {
-                        document.getElementById('empty-state').classList.remove('hidden');
-                        document.getElementById('tickets-grid').classList.add('hidden');
-                    } else renderTickets();
-                }
-            })
-            .subscribe();
+        sb.channel('tickets-changes').on('postgres_changes', {event:'*', schema:'public', table:'tickets'}, () => loadTickets()).subscribe();
 
         function renderTickets() {
             const container = document.getElementById('tickets-grid');
             container.innerHTML = '';
-
             tickets.forEach(ticket => {
                 const isBullish = ticket.direction === 'bullish';
                 const borderColor = isBullish ? 'border-emerald-600/50' : 'border-red-600/50';
                 const oddsColor = isBullish ? 'text-emerald-400' : 'text-red-400';
                 const btnColor = isBullish ? 'bg-emerald-600 active:bg-emerald-500 hover:bg-emerald-500' : 'bg-red-600 active:bg-red-500 hover:bg-red-500';
-                const badge = isBullish
-                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400"><i class="fa-solid fa-arrow-trend-up mr-1"></i>看漲</span>'
+                const badge = isBullish ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400"><i class="fa-solid fa-arrow-trend-up mr-1"></i>看漲</span>'
                     : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400"><i class="fa-solid fa-arrow-trend-down mr-1"></i>看跌</span>';
-
                 const remaining = ticket.maxLimit - ticket.accumulatedBet;
                 const percent = Math.min(100, Math.round((ticket.accumulatedBet / ticket.maxLimit) * 100));
                 const isFull = remaining <= 0;
-
                 const card = document.createElement('div');
                 card.className = `ticket-card bg-slate-900 border ${borderColor} rounded-2xl p-4 md:p-5 active:bg-slate-800/50 flex flex-col`;
                 card.innerHTML = `
@@ -524,21 +505,13 @@
                             <div class="text-[10px] text-slate-500">賠率</div>
                         </div>
                     </div>
-
                     <div class="mt-auto">
-                        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3">
-                            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
-                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3"><div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${percent}%"></div></div>
                         <div class="flex justify-between text-[11px] text-slate-500 mt-1">
-                            <span>已累積 $${ticket.accumulatedBet.toLocaleString()}</span>
-                            <span>剩餘 $${remaining.toLocaleString()}</span>
+                            <span>已累積 $${ticket.accumulatedBet.toLocaleString()}</span><span>剩餘 $${remaining.toLocaleString()}</span>
                         </div>
-
-                        <button class="w-full mt-3 py-3 ${btnColor} rounded-xl text-sm font-bold text-white">
-                            ${isFull ? '已額滿' : '立即下注'}
-                        </button>
-                    </div>
-                `;
+                        <button class="w-full mt-3 py-3 ${btnColor} rounded-xl text-sm font-bold text-white">${isFull ? '已額滿' : '立即下注'}</button>
+                    </div>`;
                 card.querySelector('button').onclick = (e) => { e.stopPropagation(); if (!isFull) openBetModal(ticket.id); };
                 container.appendChild(card);
             });
@@ -547,96 +520,57 @@
         function openBetModal(ticketId) {
             currentTicket = tickets.find(t => t.id === ticketId);
             if (!currentTicket) return;
-
             const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
             document.getElementById('modal-ticket-name').textContent = currentTicket.name;
             document.getElementById('modal-ticket-expires').textContent = currentTicket.expires;
-            document.getElementById('modal-ticket-pool').textContent =
-                `上限 $${currentTicket.maxLimit.toLocaleString()} · 已累積 $${currentTicket.accumulatedBet.toLocaleString()} · 剩餘 $${remaining.toLocaleString()}`;
-
+            document.getElementById('modal-ticket-pool').textContent = `上限 $${currentTicket.maxLimit.toLocaleString()} · 已累積 $${currentTicket.accumulatedBet.toLocaleString()} · 剩餘 $${remaining.toLocaleString()}`;
             const amountInput = document.getElementById('bet-amount');
             amountInput.value = 1000;
             updatePotentialWin();
             amountInput.oninput = () => { updatePotentialWin(); syncQuickAmountActive(); };
-
-            document.querySelectorAll('.quick-amt').forEach(btn => {
-                btn.onclick = () => {
-                    amountInput.value = btn.dataset.amt;
-                    updatePotentialWin();
-                    syncQuickAmountActive();
-                };
-            });
+            document.querySelectorAll('.quick-amt').forEach(btn => { btn.onclick = () => { amountInput.value = btn.dataset.amt; updatePotentialWin(); syncQuickAmountActive(); }; });
             syncQuickAmountActive();
-
             document.getElementById('bet-modal').classList.remove('hidden');
             document.getElementById('bet-modal').classList.add('flex');
         }
-
         function syncQuickAmountActive() {
             const val = document.getElementById('bet-amount').value;
-            document.querySelectorAll('.quick-amt').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.amt === val);
-            });
+            document.querySelectorAll('.quick-amt').forEach(btn => btn.classList.toggle('active', btn.dataset.amt === val));
         }
-
         function setMaxAmount() {
             const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
             const maxAmt = Math.min(currentUser.points_balance, remaining);
             document.getElementById('bet-amount').value = maxAmt;
-            updatePotentialWin();
-            syncQuickAmountActive();
+            updatePotentialWin(); syncQuickAmountActive();
         }
-
         function updatePotentialWin() {
             const amount = parseInt(document.getElementById('bet-amount').value) || 0;
-            const win = Math.floor(amount * currentTicket.odds);
-            document.getElementById('potential-win').textContent = win.toLocaleString() + ' 積分';
+            document.getElementById('potential-win').textContent = Math.floor(amount * currentTicket.odds).toLocaleString() + ' 積分';
         }
-
         function closeBetModal() {
             document.getElementById('bet-modal').classList.add('hidden');
             document.getElementById('bet-modal').classList.remove('flex');
         }
-
         async function placeBet() {
             const amount = parseInt(document.getElementById('bet-amount').value);
             if (!amount || amount < 100) { alert('請輸入至少 100 積分'); return; }
-
             if (amount > currentUser.points_balance) { alert('積分不足！'); return; }
-
             const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
             if (amount > remaining) { alert('超過剩餘空間！'); return; }
-
             const confirmBtn = document.getElementById('confirm-bet-btn');
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '處理中...';
-
+            confirmBtn.disabled = true; confirmBtn.textContent = '處理中...';
             const potentialWin = Math.floor(amount * currentTicket.odds);
-
             const { data, error } = await sb.rpc('place_bet', {
-                p_ticket_id: currentTicket.id,
-                p_user_id: currentUser.user_id,
-                p_amount: amount,
-                p_direction: currentTicket.direction,
-                p_odds: currentTicket.odds,
-                p_potential_win: potentialWin
+                p_ticket_id: currentTicket.id, p_user_id: currentUser.user_id, p_amount: amount,
+                p_direction: currentTicket.direction, p_odds: currentTicket.odds, p_potential_win: potentialWin
             });
-
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '確認下注';
-
-            if (error || !data.success) {
-                alert('下注失敗：' + (data ? data.message : error.message));
-                return;
-            }
-
+            confirmBtn.disabled = false; confirmBtn.textContent = '確認下注';
+            if (error || !data.success) { alert('下注失敗：' + (data ? data.message : error.message)); return; }
             currentUser.points_balance = data.new_balance;
             saveSession(currentUser);
             refreshUserDisplay();
-
             currentTicket.currentUnhedged += amount;
             currentTicket.accumulatedBet += amount;
-
             closeBetModal();
             renderTickets();
             showToast(`下注成功！已扣除 ${amount} 積分`);
@@ -647,23 +581,14 @@
             toast.className = 'fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-[200] text-sm max-w-[90%]';
             toast.innerHTML = `<i class="fa-solid fa-check-circle"></i><span>${message}</span>`;
             document.body.appendChild(toast);
-            setTimeout(() => {
-                toast.style.transition = 'all 0.3s ease';
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 2200);
+            setTimeout(() => { toast.style.transition = 'all 0.3s ease'; toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2200);
         }
 
         function init() {
             const session = loadSession();
-            if (session) {
-                currentUser = session;
-                enterGame();
-            } else {
-                document.getElementById('auth-screen').classList.remove('hidden');
-            }
+            if (session) { currentUser = session; enterGame(); }
+            else { document.getElementById('auth-screen').classList.remove('hidden'); }
         }
-
         window.onload = init;
     </script>
 </body>
