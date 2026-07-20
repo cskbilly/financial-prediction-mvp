@@ -87,7 +87,7 @@
                         class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-2xl font-medium transition-colors">
                     取消
                 </button>
-                <button onclick="placeBet()" 
+                <button id="confirm-bet-btn" onclick="placeBet()" 
                         class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-medium transition-colors">
                     確認下注
                 </button>
@@ -102,6 +102,16 @@
 
         let tickets = [];
         let currentTicket = null;
+
+        function getPlayerName() {
+            let name = localStorage.getItem('player_name');
+            if (!name) {
+                name = prompt('請輸入你的玩家名稱：', '玩家' + Math.floor(Math.random() * 10000));
+                if (!name) name = '匿名玩家';
+                localStorage.setItem('player_name', name);
+            }
+            return name;
+        }
 
         async function loadTickets() {
             const { data, error } = await sb
@@ -133,13 +143,13 @@
             return {
                 id: t.id,
                 name: t.name,
-                odds: t.odds,
+                odds: Number(t.odds),
                 expires: formatExpiry(t.expires_at),
-                currentUnhedged: t.unhedged || 0,
+                currentUnhedged: Number(t.unhedged) || 0,
                 currentPrice: t.current_price,
                 direction: t.direction || 'bullish',
-                maxLimit: t.max_limit || 500000,
-                accumulatedBet: t.accumulated_bet || 0
+                maxLimit: Number(t.max_limit) || 500000,
+                accumulatedBet: Number(t.accumulated_bet) || 0
             };
         }
 
@@ -279,6 +289,7 @@
             document.getElementById('bet-modal').classList.add('hidden');
         }
 
+        // ---------- 核心修改：下注同步寫入 bets 表，用 RPC 確保原子性 ----------
         async function placeBet() {
             const amount = parseInt(document.getElementById('bet-amount').value);
             if (!amount || amount < 100) {
@@ -298,23 +309,34 @@
                 return;
             }
 
-            const newUnhedged = currentTicket.currentUnhedged + amount;
-            const newAccumulated = currentTicket.accumulatedBet + amount;
+            const confirmBtn = document.getElementById('confirm-bet-btn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '處理中...';
 
-            const { error } = await sb
-                .from('tickets')
-                .update({ unhedged: newUnhedged, accumulated_bet: newAccumulated })
-                .eq('id', currentTicket.id);
+            const playerName = getPlayerName();
+            const potentialWin = Math.floor(amount * currentTicket.odds);
+
+            const { error } = await sb.rpc('place_bet', {
+                p_ticket_id: currentTicket.id,
+                p_player_name: playerName,
+                p_amount: amount,
+                p_direction: currentTicket.direction,
+                p_odds: currentTicket.odds,
+                p_potential_win: potentialWin
+            });
+
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '確認下注';
 
             if (error) {
                 console.error('下注失敗:', error);
-                alert('下注失敗，請稍後再試');
+                alert('下注失敗，請稍後再試：' + error.message);
                 return;
             }
 
             document.getElementById('user-points').textContent = (currentPoints - amount).toLocaleString();
-            currentTicket.currentUnhedged = newUnhedged;
-            currentTicket.accumulatedBet = newAccumulated;
+            currentTicket.currentUnhedged += amount;
+            currentTicket.accumulatedBet += amount;
 
             closeBetModal();
             renderTickets();
