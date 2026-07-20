@@ -1,94 +1,103 @@
-<!DOCTYPE html>
+html = r'''<!DOCTYPE html>
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>遊戲網 • 金融預測區</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        body { font-family: 'Noto Sans TC', system-ui, sans-serif; }
-        .ticket-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .ticket-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+        body { font-family: 'Noto Sans TC', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .ticket-card { transition: transform 0.15s ease; }
+        .ticket-card:active { transform: scale(0.98); }
+        .sheet-enter { animation: slideUp 0.25s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .quick-amt.active { background-color: #059669 !important; color: white; }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200">
+<body class="bg-slate-950 text-slate-200 pb-20">
 
-    <nav class="bg-slate-900 border-b border-slate-700 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div class="flex items-center gap-x-6">
-            <a href="#" class="font-bold text-xl">金融預測區</a>
-            <a href="../admin/admin-dashboard.html" 
-               class="text-sm px-3 py-1.5 hover:bg-slate-800 rounded-lg flex items-center gap-x-2 transition-colors">
-                <i class="fa-solid fa-tachometer-alt"></i>
-                <span>後台監控</span>
-            </a>
+    <nav class="bg-slate-900 border-b border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+        <div class="flex items-center gap-x-3">
+            <span class="font-bold text-lg">金融預測區</span>
         </div>
-        <div class="flex items-center gap-x-4">
-            <div class="bg-slate-900 border border-slate-700 px-4 py-2 rounded-2xl flex items-center gap-x-2">
-                <span class="text-sm text-slate-400">我的積分</span>
-                <span class="text-xl font-bold text-emerald-400" id="user-points">12,500</span>
-            </div>
-            <button onclick="showTransferModal()" 
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-2xl text-sm font-medium flex items-center gap-x-2 transition-colors">
-                <i class="fa-solid fa-exchange-alt"></i>
-                <span>轉入積分</span>
-            </button>
-        </div>
+        <a href="../admin/admin-dashboard.html" 
+           class="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-full">
+            <i class="fa-solid fa-tachometer-alt text-sm"></i>
+        </a>
     </nav>
 
-    <div class="max-w-6xl mx-auto px-6 py-8">
-        
-        <div class="mb-8">
-            <h1 class="text-3xl font-bold">金融預測遊戲</h1>
-            <p class="text-slate-400 mt-1">用積分挑戰真實市場 • 高賠率預測</p>
-        </div>
+    <div class="px-4 pt-4 pb-2">
+        <h1 class="text-xl font-bold">用積分挑戰真實市場</h1>
+        <p class="text-slate-400 text-sm mt-0.5">高賠率預測 · 即時對沖</p>
+    </div>
 
-        <div id="loading-state" class="text-center py-12 text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-            <p>載入票據中...</p>
-        </div>
+    <div id="loading-state" class="text-center py-16 text-slate-400">
+        <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
+        <p class="text-sm">載入票據中...</p>
+    </div>
 
-        <div id="empty-state" class="hidden text-center py-12 text-slate-400">
-            <i class="fa-solid fa-inbox text-3xl mb-3"></i>
-            <p>目前沒有任何票據</p>
-        </div>
+    <div id="empty-state" class="hidden text-center py-16 text-slate-400">
+        <i class="fa-solid fa-inbox text-3xl mb-3"></i>
+        <p class="text-sm">目前沒有任何票據</p>
+    </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden" id="tickets-grid">
+    <div class="px-4 pb-4 space-y-3 hidden" id="tickets-grid">
+    </div>
+
+    <div class="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex items-center justify-between z-40 safe-bottom">
+        <div class="flex items-center gap-x-2">
+            <i class="fa-solid fa-coins text-yellow-400"></i>
+            <span class="text-sm text-slate-400">我的積分</span>
+            <span class="text-lg font-bold text-emerald-400" id="user-points">12,500</span>
         </div>
+        <button onclick="showTransferModal()" 
+                class="px-4 py-2.5 bg-blue-600 active:bg-blue-500 rounded-xl text-sm font-medium flex items-center gap-x-2">
+            <i class="fa-solid fa-exchange-alt"></i>
+            <span>轉入積分</span>
+        </button>
     </div>
 
     <div id="bet-modal" onclick="if (event.target.id === 'bet-modal') closeBetModal()"
-         class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
-        <div onclick="event.stopImmediatePropagation()" 
-             class="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-md mx-4">
+         class="hidden fixed inset-0 bg-black/70 z-[100]">
+        <div id="bet-sheet" onclick="event.stopImmediatePropagation()" 
+             class="sheet-enter absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 rounded-t-3xl p-5 pb-8 safe-bottom max-h-[85vh] overflow-y-auto">
             
-            <h3 class="text-xl font-bold mb-1" id="modal-ticket-name"></h3>
+            <div class="w-10 h-1.5 bg-slate-700 rounded-full mx-auto mb-4"></div>
+
+            <h3 class="text-lg font-bold mb-1" id="modal-ticket-name"></h3>
             <p class="text-sm text-slate-400 mb-1" id="modal-ticket-expires"></p>
-            <p class="text-sm text-slate-400 mb-5" id="modal-ticket-pool"></p>
+            <p class="text-xs text-slate-500 mb-5" id="modal-ticket-pool"></p>
 
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-slate-400 mb-2">下注金額（積分）</label>
-                    <input type="number" id="bet-amount" value="1000" 
-                           class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3 text-lg outline-none">
+                    <input type="number" id="bet-amount" value="1000" inputmode="numeric"
+                           class="w-full bg-slate-800 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-4 text-2xl font-bold outline-none">
+                    <div class="grid grid-cols-4 gap-2 mt-3" id="quick-amounts">
+                        <button type="button" data-amt="500" class="quick-amt py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">500</button>
+                        <button type="button" data-amt="1000" class="quick-amt py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">1000</button>
+                        <button type="button" data-amt="5000" class="quick-amt py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">5000</button>
+                        <button type="button" onclick="setMaxAmount()" class="py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm font-medium">最大</button>
+                    </div>
                 </div>
 
-                <div class="bg-slate-800 rounded-2xl p-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-400">預計可贏得</span>
-                        <span class="text-2xl font-bold text-emerald-400" id="potential-win">0</span>
-                    </div>
+                <div class="bg-slate-800 rounded-2xl p-4 flex justify-between items-center">
+                    <span class="text-slate-400 text-sm">預計可贏得</span>
+                    <span class="text-2xl font-bold text-emerald-400" id="potential-win">0</span>
                 </div>
             </div>
 
             <div class="flex gap-3 mt-6">
                 <button onclick="closeBetModal()" 
-                        class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-2xl font-medium transition-colors">
+                        class="flex-1 py-4 bg-slate-700 active:bg-slate-600 rounded-2xl font-medium">
                     取消
                 </button>
                 <button id="confirm-bet-btn" onclick="placeBet()" 
-                        class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-medium transition-colors">
+                        class="flex-[2] py-4 bg-emerald-600 active:bg-emerald-500 rounded-2xl font-bold text-lg">
                     確認下注
                 </button>
             </div>
@@ -114,21 +123,14 @@
         }
 
         async function loadTickets() {
-            const { data, error } = await sb
-                .from('tickets')
-                .select('*')
-                .order('id', { ascending: true });
-
+            const { data, error } = await sb.from('tickets').select('*').order('id', { ascending: true });
             if (error) {
                 console.error('讀取失敗:', error);
-                document.getElementById('loading-state').innerHTML =
-                    '<p class="text-red-400">載入失敗，請檢查連線設定</p>';
+                document.getElementById('loading-state').innerHTML = '<p class="text-red-400 text-sm">載入失敗，請檢查連線設定</p>';
                 return;
             }
-
             tickets = data.map(mapTicket);
             document.getElementById('loading-state').classList.add('hidden');
-
             if (tickets.length === 0) {
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('tickets-grid').classList.add('hidden');
@@ -141,14 +143,9 @@
 
         function mapTicket(t) {
             return {
-                id: t.id,
-                name: t.name,
-                odds: Number(t.odds),
-                expires: formatExpiry(t.expires_at),
-                currentUnhedged: Number(t.unhedged) || 0,
-                currentPrice: t.current_price,
-                direction: t.direction || 'bullish',
-                maxLimit: Number(t.max_limit) || 500000,
+                id: t.id, name: t.name, odds: Number(t.odds), expires: formatExpiry(t.expires_at),
+                currentUnhedged: Number(t.unhedged) || 0, currentPrice: t.current_price,
+                direction: t.direction || 'bullish', maxLimit: Number(t.max_limit) || 500000,
                 accumulatedBet: Number(t.accumulated_bet) || 0
             };
         }
@@ -163,19 +160,15 @@
             return `${d.getMonth() + 1}月${d.getDate()}日 ${timeStr}`;
         }
 
-        sb
-            .channel('tickets-changes')
+        sb.channel('tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
                 if (payload.eventType === 'UPDATE') {
                     const updated = mapTicket(payload.new);
                     const index = tickets.findIndex(t => t.id === updated.id);
-                    if (index !== -1) {
-                        tickets[index] = updated;
-                    }
+                    if (index !== -1) tickets[index] = updated;
                     renderTickets();
                 } else if (payload.eventType === 'INSERT') {
-                    const added = mapTicket(payload.new);
-                    tickets.push(added);
+                    tickets.push(mapTicket(payload.new));
                     document.getElementById('empty-state').classList.add('hidden');
                     document.getElementById('tickets-grid').classList.remove('hidden');
                     renderTickets();
@@ -184,9 +177,7 @@
                     if (tickets.length === 0) {
                         document.getElementById('empty-state').classList.remove('hidden');
                         document.getElementById('tickets-grid').classList.add('hidden');
-                    } else {
-                        renderTickets();
-                    }
+                    } else renderTickets();
                 }
             })
             .subscribe();
@@ -197,63 +188,45 @@
 
             tickets.forEach(ticket => {
                 const isBullish = ticket.direction === 'bullish';
-                const borderColor = isBullish ? 'border-emerald-600' : 'border-red-600';
-                const hoverBorder = isBullish ? 'hover:border-emerald-500' : 'hover:border-red-500';
+                const borderColor = isBullish ? 'border-emerald-600/50' : 'border-red-600/50';
                 const oddsColor = isBullish ? 'text-emerald-400' : 'text-red-400';
-                const btnColor = isBullish ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-red-600 hover:bg-red-500';
-                const badge = isBullish 
-                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400">看漲</span>' 
-                    : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400">看跌</span>';
+                const btnColor = isBullish ? 'bg-emerald-600 active:bg-emerald-500' : 'bg-red-600 active:bg-red-500';
+                const badge = isBullish
+                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400"><i class="fa-solid fa-arrow-trend-up mr-1"></i>看漲</span>'
+                    : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400"><i class="fa-solid fa-arrow-trend-down mr-1"></i>看跌</span>';
 
                 const remaining = ticket.maxLimit - ticket.accumulatedBet;
                 const percent = Math.min(100, Math.round((ticket.accumulatedBet / ticket.maxLimit) * 100));
-                const remainingColor = remaining < ticket.maxLimit * 0.1 ? 'text-red-400' : 'text-emerald-400';
                 const isFull = remaining <= 0;
 
                 const card = document.createElement('div');
-                card.className = `ticket-card bg-slate-900 border ${borderColor} ${hoverBorder} rounded-3xl p-5 cursor-pointer`;
-                
+                card.className = `ticket-card bg-slate-900 border ${borderColor} rounded-2xl p-4 active:bg-slate-800/50`;
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-3">
-                        <div class="pr-4">
-                            <div class="flex items-center gap-2 mb-1">${badge}</div>
-                            <div class="font-bold text-lg leading-tight">${ticket.name}</div>
-                            <div class="text-sm text-slate-400 mt-1">${ticket.expires}</div>
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="pr-3 flex-1 min-w-0">
+                            <div class="mb-1.5">${badge}</div>
+                            <div class="font-bold text-base leading-snug break-words">${ticket.name}</div>
+                            <div class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-clock mr-1"></i>${ticket.expires}</div>
                         </div>
-                        <div class="text-right flex-shrink-0">
-                            <div class="text-3xl font-bold ${oddsColor}">${ticket.odds}x</div>
-                            <div class="text-xs text-slate-500 -mt-1">賠率</div>
+                        <div class="text-right flex-shrink-0 pl-2">
+                            <div class="text-2xl font-bold ${oddsColor}">${ticket.odds}x</div>
+                            <div class="text-[10px] text-slate-500">賠率</div>
                         </div>
                     </div>
 
-                    <div class="space-y-2">
-                        <div class="flex justify-between text-xs">
-                            <span class="text-slate-400">上限</span>
-                            <span class="font-medium">$${ticket.maxLimit.toLocaleString()}</span>
-                        </div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-slate-400">已累積</span>
-                            <span class="font-medium">$${ticket.accumulatedBet.toLocaleString()}</span>
-                        </div>
-                        <div class="flex justify-between text-xs">
-                            <span class="text-slate-400">剩餘</span>
-                            <span class="font-medium ${remainingColor}">$${remaining.toLocaleString()}</span>
-                        </div>
-                        <div class="w-full bg-slate-800 rounded-full h-1.5">
-                            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
-                        </div>
-                        <div class="text-right text-xs text-slate-500">${percent}%</div>
+                    <div class="w-full bg-slate-800 rounded-full h-1.5 mt-3">
+                        <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-500 mt-1">
+                        <span>已累積 $${ticket.accumulatedBet.toLocaleString()}</span>
+                        <span>剩餘 $${remaining.toLocaleString()}</span>
                     </div>
 
-                    <div class="mt-4 text-right">
-                        <button onclick="event.stopImmediatePropagation(); openBetModal(${ticket.id})" 
-                                class="px-5 py-2.5 ${btnColor} rounded-2xl text-sm font-semibold transition-all text-white">
-                            ${isFull ? '已額滿' : '立即下注'}
-                        </button>
-                    </div>
+                    <button class="w-full mt-3 py-3 ${btnColor} rounded-xl text-sm font-bold text-white">
+                        ${isFull ? '已額滿' : '立即下注'}
+                    </button>
                 `;
-
-                card.onclick = () => { if (!isFull) openBetModal(ticket.id); };
+                card.querySelector('button').onclick = (e) => { e.stopPropagation(); if (!isFull) openBetModal(ticket.id); };
                 container.appendChild(card);
             });
         }
@@ -263,19 +236,42 @@
             if (!currentTicket) return;
 
             const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
-
             document.getElementById('modal-ticket-name').textContent = currentTicket.name;
             document.getElementById('modal-ticket-expires').textContent = currentTicket.expires;
-            document.getElementById('modal-ticket-pool').textContent = 
+            document.getElementById('modal-ticket-pool').textContent =
                 `上限 $${currentTicket.maxLimit.toLocaleString()} · 已累積 $${currentTicket.accumulatedBet.toLocaleString()} · 剩餘 $${remaining.toLocaleString()}`;
 
             const amountInput = document.getElementById('bet-amount');
             amountInput.value = 1000;
             updatePotentialWin();
-            amountInput.oninput = updatePotentialWin;
+            amountInput.oninput = () => { updatePotentialWin(); syncQuickAmountActive(); };
+
+            document.querySelectorAll('.quick-amt').forEach(btn => {
+                btn.onclick = () => {
+                    amountInput.value = btn.dataset.amt;
+                    updatePotentialWin();
+                    syncQuickAmountActive();
+                };
+            });
+            syncQuickAmountActive();
 
             document.getElementById('bet-modal').classList.remove('hidden');
-            document.getElementById('bet-modal').classList.add('flex');
+        }
+
+        function syncQuickAmountActive() {
+            const val = document.getElementById('bet-amount').value;
+            document.querySelectorAll('.quick-amt').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.amt === val);
+            });
+        }
+
+        function setMaxAmount() {
+            const currentPoints = parseInt(document.getElementById('user-points').textContent.replace(/,/g, ''));
+            const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
+            const maxAmt = Math.min(currentPoints, remaining);
+            document.getElementById('bet-amount').value = maxAmt;
+            updatePotentialWin();
+            syncQuickAmountActive();
         }
 
         function updatePotentialWin() {
@@ -285,29 +281,18 @@
         }
 
         function closeBetModal() {
-            document.getElementById('bet-modal').classList.remove('flex');
             document.getElementById('bet-modal').classList.add('hidden');
         }
 
-        // ---------- 核心修改：下注同步寫入 bets 表，用 RPC 確保原子性 ----------
         async function placeBet() {
             const amount = parseInt(document.getElementById('bet-amount').value);
-            if (!amount || amount < 100) {
-                alert('請輸入至少 100 積分');
-                return;
-            }
+            if (!amount || amount < 100) { alert('請輸入至少 100 積分'); return; }
 
             const currentPoints = parseInt(document.getElementById('user-points').textContent.replace(/,/g, ''));
-            if (amount > currentPoints) {
-                alert('積分不足！');
-                return;
-            }
+            if (amount > currentPoints) { alert('積分不足！'); return; }
 
             const remaining = currentTicket.maxLimit - currentTicket.accumulatedBet;
-            if (amount > remaining) {
-                alert('超過剩餘空間！');
-                return;
-            }
+            if (amount > remaining) { alert('超過剩餘空間！'); return; }
 
             const confirmBtn = document.getElementById('confirm-bet-btn');
             confirmBtn.disabled = true;
@@ -317,12 +302,8 @@
             const potentialWin = Math.floor(amount * currentTicket.odds);
 
             const { error } = await sb.rpc('place_bet', {
-                p_ticket_id: currentTicket.id,
-                p_player_name: playerName,
-                p_amount: amount,
-                p_direction: currentTicket.direction,
-                p_odds: currentTicket.odds,
-                p_potential_win: potentialWin
+                p_ticket_id: currentTicket.id, p_player_name: playerName, p_amount: amount,
+                p_direction: currentTicket.direction, p_odds: currentTicket.odds, p_potential_win: potentialWin
             });
 
             confirmBtn.disabled = false;
@@ -346,7 +327,6 @@
         function showTransferModal() {
             const amount = prompt('請輸入要轉入的積分金額：', '5000');
             if (!amount || isNaN(amount)) return;
-
             const current = parseInt(document.getElementById('user-points').textContent.replace(/,/g, ''));
             document.getElementById('user-points').textContent = (current + parseInt(amount)).toLocaleString();
             showToast(`成功轉入 ${amount} 積分`);
@@ -354,13 +334,9 @@
 
         function showToast(message) {
             const toast = document.createElement('div');
-            toast.className = 'fixed bottom-6 right-6 bg-emerald-600 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-[200]';
-            toast.innerHTML = `
-                <i class="fa-solid fa-check-circle text-lg"></i>
-                <span>${message}</span>
-            `;
+            toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-[200] text-sm max-w-[90%]';
+            toast.innerHTML = `<i class="fa-solid fa-check-circle"></i><span>${message}</span>`;
             document.body.appendChild(toast);
-
             setTimeout(() => {
                 toast.style.transition = 'all 0.3s ease';
                 toast.style.opacity = '0';
@@ -368,11 +344,11 @@
             }, 2200);
         }
 
-        function init() {
-            loadTickets();
-        }
-
+        function init() { loadTickets(); }
         window.onload = init;
     </script>
 </body>
-</html>
+</html>'''
+with open('output/player-game-mobile.html','w',encoding='utf-8') as f:
+    f.write(html)
+print(len(html))
