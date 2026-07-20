@@ -32,7 +32,7 @@
             </div>
             <div class="text-right text-sm">
                 <div>對沖管理員</div>
-                <div class="text-xs text-slate-400" id="last-update">剛剛更新</div>
+                <div class="text-xs text-slate-400" id="last-update">載入中...</div>
             </div>
         </div>
     </nav>
@@ -74,7 +74,7 @@
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
                 <div class="text-slate-400 text-xs">目前未對沖總額</div>
                 <div class="text-3xl font-bold mt-1 text-yellow-400" id="total-unhedged">$0</div>
-                <div class="text-xs text-slate-400 mt-1">需持續監控</div>
+                <div class="text-xs text-slate-400 mt-1" id="unhedged-bet-count">0 張未對沖注單</div>
             </div>
             <div class="stat-card rounded-2xl p-5 border border-slate-700">
                 <div class="text-slate-400 text-xs">待對沖票據</div>
@@ -86,7 +86,7 @@
         <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-lg">所有票據即時狀態</h3>
-                <button onclick="loadTickets()" 
+                <button id="refresh-btn" onclick="loadAll()" 
                         class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-sm flex items-center gap-2">
                     <i class="fa-solid fa-sync-alt"></i>
                     <span>刷新數據</span>
@@ -111,6 +111,28 @@
                 </table>
             </div>
         </div>
+
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 mt-6">
+            <h3 class="font-bold text-lg mb-4">所有未對沖注單明細</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400">
+                            <th class="py-3 px-4 text-left">注單編號</th>
+                            <th class="py-3 px-4 text-left">所屬票據</th>
+                            <th class="py-3 px-4 text-left">玩家</th>
+                            <th class="py-3 px-4 text-left">方向</th>
+                            <th class="py-3 px-4 text-left">金額</th>
+                            <th class="py-3 px-4 text-left">賠率</th>
+                            <th class="py-3 px-4 text-left">預計贏額</th>
+                            <th class="py-3 px-4 text-left">下注時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bets-table-body" class="divide-y divide-slate-800">
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -119,21 +141,45 @@
         const sb = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         let tickets = [];
+        let unhedgedBets = [];
+        let isRefreshing = false;
 
-        async function loadTickets() {
+        function nowHK() { return new Date(); }
+
+        function formatFullTime(date) {
+            if (!date) return '—';
+            return new Date(date).toLocaleString('zh-HK', {
+                timeZone: 'Asia/Hong_Kong',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        }
+
+        function formatTimeAgo(date) {
+            if (!date) return '從未對沖';
+            const diffMs = nowHK() - new Date(date);
+            const diffMin = Math.floor(diffMs / 1000 / 60);
+            if (diffMin < 1) return '剛剛';
+            if (diffMin < 60) return `${diffMin} 分鐘前`;
+            const hours = Math.floor(diffMin / 60);
+            const mins = diffMin % 60;
+            return `${hours} 小時 ${mins} 分前`;
+        }
+
+        async function fetchTickets() {
+            const { data, error } = await sb.from('tickets').select('*').order('id', { ascending: true });
+            if (error) { console.error('讀取 tickets 失敗:', error); return []; }
+            return data.map(mapTicket);
+        }
+
+        async function fetchUnhedgedBets() {
             const { data, error } = await sb
-                .from('tickets')
+                .from('bets')
                 .select('*')
-                .order('id', { ascending: true });
-
-            if (error) {
-                console.error('讀取失敗:', error);
-                return;
-            }
-
-            tickets = data.map(mapTicket);
-            updateUI();
-            document.getElementById('last-update').textContent = '剛剛更新';
+                .eq('is_hedged', false)
+                .order('created_at', { ascending: false });
+            if (error) { console.error('讀取 bets 失敗:', error); return []; }
+            return data;
         }
 
         function mapTicket(t) {
@@ -141,37 +187,75 @@
                 id: t.id,
                 name: t.name,
                 direction: t.direction || 'bullish',
-                unhedged: t.unhedged || 0,
+                unhedged: Number(t.unhedged) || 0,
                 lastHedge: t.last_hedge || t.created_at,
                 expiresAt: t.expires_at,
-                maxLimit: t.max_limit || 500000,
-                accumulatedBet: t.accumulated_bet || 0
+                maxLimit: Number(t.max_limit) || 500000,
+                accumulatedBet: Number(t.accumulated_bet) || 0,
+                odds: t.odds,
+                currentPrice: t.current_price
             };
         }
 
-        sb
-            .channel('admin-tickets-changes')
+        async function loadAll() {
+            if (isRefreshing) return;
+            isRefreshing = true;
+            setRefreshButtonState(true);
+            try {
+                const [ticketData, betData] = await Promise.all([
+                    fetchTickets(),
+                    fetchUnhedgedBets()
+                ]);
+                tickets = ticketData;
+                unhedgedBets = betData;
+                updateUI();
+                setLastUpdateNow();
+            } finally {
+                isRefreshing = false;
+                setRefreshButtonState(false);
+            }
+        }
+
+        function setRefreshButtonState(loading) {
+            const btn = document.getElementById('refresh-btn');
+            if (!btn) return;
+            btn.disabled = loading;
+            btn.innerHTML = loading
+                ? `<i class="fa-solid fa-spinner fa-spin"></i><span>刷新中...</span>`
+                : `<i class="fa-solid fa-sync-alt"></i><span>刷新數據</span>`;
+        }
+
+        function setLastUpdateNow() {
+            document.getElementById('last-update').textContent = '最後刷新：' + formatFullTime(nowHK());
+        }
+
+        sb.channel('admin-tickets-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
                 if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
                     const updated = mapTicket(payload.new);
                     const index = tickets.findIndex(t => t.id === updated.id);
-                    if (index !== -1) {
-                        tickets[index] = updated;
-                    } else {
-                        tickets.push(updated);
-                    }
-                    updateUI();
-                    document.getElementById('last-update').textContent = '剛剛更新';
+                    if (index !== -1) tickets[index] = updated;
+                    else tickets.push(updated);
                 } else if (payload.eventType === 'DELETE') {
                     tickets = tickets.filter(t => t.id !== payload.old.id);
-                    updateUI();
                 }
+                updateUI();
+                setLastUpdateNow();
+            })
+            .subscribe();
+
+        sb.channel('admin-bets-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bets' }, async () => {
+                unhedgedBets = await fetchUnhedgedBets();
+                updateUI();
+                setLastUpdateNow();
             })
             .subscribe();
 
         function updateUI() {
             renderUrgentTickets();
             renderTicketsTable();
+            renderBetsTable();
             updateOverviewStats();
         }
 
@@ -181,7 +265,7 @@
             const pendingCount = tickets.filter(isUrgent).length;
             const expiringSoon = tickets.filter(t => {
                 if (!t.expiresAt) return false;
-                const hoursLeft = (new Date(t.expiresAt) - new Date()) / 1000 / 60 / 60;
+                const hoursLeft = (new Date(t.expiresAt) - nowHK()) / 1000 / 60 / 60;
                 return hoursLeft > 0 && hoursLeft < 2;
             }).length;
 
@@ -189,57 +273,62 @@
             document.getElementById('total-limit').textContent = '$' + totalLimit.toLocaleString();
             document.getElementById('expiring-soon').textContent = `${expiringSoon} 張即將到期`;
             document.getElementById('total-unhedged').textContent = '$' + totalUnhedged.toLocaleString();
+            document.getElementById('unhedged-bet-count').textContent = `${unhedgedBets.length} 張未對沖注單`;
             document.getElementById('pending-count').textContent = pendingCount;
-        }
-
-        function formatTimeAgo(date) {
-            const diff = Math.floor((new Date() - new Date(date)) / 1000 / 60);
-            if (diff < 60) return `${diff} 分鐘前`;
-            return `${Math.floor(diff / 60)} 小時 ${diff % 60} 分前`;
         }
 
         function isUrgent(ticket) {
             if (ticket.unhedged <= 0) return false;
-            const minutes = Math.floor((new Date() - new Date(ticket.lastHedge)) / 1000 / 60);
+            const minutes = Math.floor((nowHK() - new Date(ticket.lastHedge)) / 1000 / 60);
             return ticket.unhedged >= 1000 || minutes > 60;
         }
 
         function getStatus(ticket) {
-            if (ticket.unhedged <= 0) {
-                return { color: 'emerald', label: '正常' };
-            }
-            if (ticket.unhedged >= 1000) {
-                return { color: 'red', label: '需立即對沖' };
-            }
-            const minutes = Math.floor((new Date() - new Date(ticket.lastHedge)) / 1000 / 60);
-            if (minutes > 60) {
-                return { color: 'orange', label: '需立即對沖' };
-            }
+            if (ticket.unhedged <= 0) return { color: 'emerald', label: '正常' };
+            if (ticket.unhedged >= 1000) return { color: 'red', label: '需立即對沖' };
+            const minutes = Math.floor((nowHK() - new Date(ticket.lastHedge)) / 1000 / 60);
+            if (minutes > 60) return { color: 'orange', label: '需立即對沖' };
             return { color: 'emerald', label: '正常' };
         }
 
         function renderUrgentTickets() {
             const container = document.getElementById('urgent-tickets');
             container.innerHTML = '';
-
             const urgent = tickets.filter(isUrgent);
             document.getElementById('urgent-count').textContent = urgent.length;
 
             urgent.forEach(ticket => {
                 const status = getStatus(ticket);
-                const div = document.createElement('div');
-                div.className = `bg-slate-950/70 border border-${status.color}-500 rounded-xl p-4 flex justify-between items-center`;
-                div.innerHTML = `
-                    <div>
-                        <div class="font-bold">${ticket.name}</div>
-                        <div class="text-xs text-slate-400 mt-0.5">
-                            未對沖：$${ticket.unhedged.toLocaleString()} ｜ ${formatTimeAgo(ticket.lastHedge)}
-                        </div>
+                const betsForTicket = unhedgedBets.filter(b => b.ticket_id === ticket.id);
+                const accumulatedFromBets = betsForTicket.reduce((s, b) => s + Number(b.amount || 0), 0);
+
+                const betRows = betsForTicket.map(b => `
+                    <div class="flex justify-between items-center text-xs py-1.5 px-3 bg-slate-900/60 rounded-lg mt-1">
+                        <span class="text-slate-300">${b.player_name}</span>
+                        <span class="text-slate-400">${b.direction === 'bullish' ? '看漲' : '看跌'}</span>
+                        <span class="font-bold text-yellow-400">$${Number(b.amount).toLocaleString()}</span>
+                        <span class="text-slate-500">${formatFullTime(b.created_at)}</span>
                     </div>
-                    <button onclick="performHedge(${ticket.id}, this)" 
-                            class="px-5 py-2 bg-${status.color}-600 hover:bg-${status.color}-500 rounded-xl font-bold text-sm">
-                        立即對沖（全額）
-                    </button>
+                `).join('');
+
+                const div = document.createElement('div');
+                div.className = `bg-slate-950/70 border border-${status.color}-500 rounded-xl p-4`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="font-bold">${ticket.name}</div>
+                            <div class="text-xs text-slate-400 mt-0.5" title="${formatFullTime(ticket.lastHedge)}">
+                                累積未對沖：<span class="text-yellow-400 font-bold">$${ticket.unhedged.toLocaleString()}</span>
+                                （${betsForTicket.length} 張注單，明細合計 $${accumulatedFromBets.toLocaleString()}）
+                                ｜ 距上次對沖：${formatTimeAgo(ticket.lastHedge)}
+                            </div>
+                        </div>
+                        <button onclick="performHedge(${ticket.id}, this)"
+                                class="px-5 py-2 bg-${status.color}-600 hover:bg-${status.color}-500 rounded-xl font-bold text-sm shrink-0">
+                            立即對沖（全額）
+                        </button>
+                    </div>
+                    ${betsForTicket.length ? `<div class="mt-2 space-y-0.5">${betRows}</div>` : ''}
                 `;
                 container.appendChild(div);
             });
@@ -266,18 +355,49 @@
                         $${ticket.maxLimit.toLocaleString()} / $${ticket.accumulatedBet.toLocaleString()} / $${remaining.toLocaleString()}
                     </td>
                     <td class="py-4 px-4 font-bold">$${ticket.unhedged.toLocaleString()}</td>
-                    <td class="py-4 px-4 text-slate-400">${formatTimeAgo(ticket.lastHedge)}</td>
+                    <td class="py-4 px-4 text-slate-400" title="${formatFullTime(ticket.lastHedge)}">${formatTimeAgo(ticket.lastHedge)}</td>
                     <td class="py-4 px-4">
                         <span class="px-3 py-1 text-xs rounded-full bg-${status.color}-900/50 text-${status.color}-400">
                             ${status.label}
                         </span>
                     </td>
                     <td class="py-4 px-4 text-right">
-                        <button onclick="performHedge(${ticket.id}, this)" 
+                        <button onclick="performHedge(${ticket.id}, this)"
                                 class="px-4 py-2 text-sm rounded-xl ${status.color === 'emerald' ? 'bg-slate-700 hover:bg-slate-600' : `bg-${status.color}-600 hover:bg-${status.color}-500`}">
                             ${status.color === 'emerald' ? '查看' : '立即對沖'}
                         </button>
                     </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderBetsTable() {
+            const tbody = document.getElementById('bets-table-body');
+            tbody.innerHTML = '';
+
+            if (unhedgedBets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-500">目前沒有未對沖注單</td></tr>`;
+                return;
+            }
+
+            unhedgedBets.forEach(bet => {
+                const ticket = tickets.find(t => t.id === bet.ticket_id);
+                const directionBadge = bet.direction === 'bullish'
+                    ? '<span class="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-400">看漲</span>'
+                    : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400">看跌</span>';
+
+                const row = document.createElement('tr');
+                row.className = 'border-b border-slate-800 hover:bg-slate-900';
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-slate-400">#${bet.id}</td>
+                    <td class="py-3 px-4">${ticket ? ticket.name : '票據 #' + bet.ticket_id}</td>
+                    <td class="py-3 px-4 font-medium">${bet.player_name}</td>
+                    <td class="py-3 px-4">${directionBadge}</td>
+                    <td class="py-3 px-4 font-bold text-yellow-400">$${Number(bet.amount).toLocaleString()}</td>
+                    <td class="py-3 px-4">${bet.odds}x</td>
+                    <td class="py-3 px-4 text-emerald-400">$${Number(bet.potential_win).toLocaleString()}</td>
+                    <td class="py-3 px-4 text-slate-400" title="${formatFullTime(bet.created_at)}">${formatTimeAgo(bet.created_at)}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -290,12 +410,7 @@
             buttonElement.disabled = true;
             buttonElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>執行中...`;
 
-            const nowIso = new Date().toISOString();
-
-            const { error } = await sb
-                .from('tickets')
-                .update({ unhedged: 0, last_hedge: nowIso })
-                .eq('id', ticketId);
+            const { error } = await sb.rpc('hedge_ticket', { p_ticket_id: ticketId });
 
             if (error) {
                 console.error('對沖失敗:', error);
@@ -305,13 +420,21 @@
             }
 
             ticket.unhedged = 0;
-            ticket.lastHedge = nowIso;
+            ticket.lastHedge = new Date().toISOString();
+            unhedgedBets = unhedgedBets.filter(b => b.ticket_id !== ticketId);
 
             updateUI();
+            setLastUpdateNow();
         }
 
+        setInterval(() => {
+            renderUrgentTickets();
+            renderTicketsTable();
+            renderBetsTable();
+        }, 30000);
+
         function init() {
-            loadTickets();
+            loadAll();
         }
 
         window.onload = init;
