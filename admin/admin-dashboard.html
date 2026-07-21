@@ -470,8 +470,8 @@
         function renderManageTickets() {
             const tbody = document.getElementById('manage-tickets-body');
             if (tickets.length===0) { tbody.innerHTML='<tr><td colspan="8" class="py-6 text-center text-slate-500">沒有任何票據</td></tr>'; return; }
-            const statusColor = { open:'text-emerald-400', closed:'text-yellow-400', settled:'text-slate-500', cancelled:'text-red-500' };
-            const statusLabel = { open:'進行中', closed:'待結算', settled:'已結算', cancelled:'已取消' };
+            const statusColor = { open:'text-emerald-400', paused:'text-yellow-400', closed:'text-yellow-400', settled:'text-slate-500', cancelled:'text-red-500' };
+            const statusLabel = { open:'開放', paused:'暫停', closed:'待結算', settled:'已結算', cancelled:'已取消' };
             tbody.innerHTML = tickets.map(t=>`
                 <tr class="border-b border-slate-800 hover:bg-slate-800/50">
                     <td class="py-2.5 px-3 text-slate-400">#${t.id}</td>
@@ -482,9 +482,12 @@
                     <td class="py-2.5 px-3 ${statusColor[t.status]||''}">${statusLabel[t.status]||t.status}</td>
                     <td class="py-2.5 px-3">$${t.accumulatedBet.toLocaleString()}</td>
                     <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                        ${t.status==='open'||t.status==='closed' ? `
+                        ${(t.status==='open'||t.status==='paused') ? `
+                        <button onclick="toggleTicketPause(${t.id}, ${t.status==='paused'})" class="px-3 py-1.5 ${t.status==='paused'?'bg-emerald-700 hover:bg-emerald-600':'bg-yellow-700 hover:bg-yellow-600'} rounded-lg text-xs mr-2">${t.status==='paused'?'恢復':'暫停'}</button>
                         <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
-                        <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : '—'}
+                        <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : (t.status==='closed' ? `
+                        <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
+                        <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : '—')}
                     </td>
                 </tr>`).join('');
         }
@@ -561,6 +564,13 @@
             const { data, error } = await sb.rpc('cancel_ticket', { p_ticket_id: ticketId, p_admin_name: currentAdmin.username });
             if (error || !data.success) { alert('操作失敗：'+(data?data.message:error.message)); return; }
             alert(`票據已取消，共退款 $${Number(data.refunded_amount).toLocaleString()}`);
+            fetchAll();
+        }
+        async function toggleTicketPause(ticketId, currentlyPaused) {
+            const action = currentlyPaused ? '恢復接受注碼' : '暫停接受注碼';
+            if (!confirm(`確定要${action}呢隻ticket？`)) return;
+            const { data, error } = await sb.rpc('toggle_ticket_pause', { p_ticket_id: ticketId, p_pause: !currentlyPaused });
+            if (error || !data.success) { alert('操作失敗：'+(data?data.message:error.message)); return; }
             fetchAll();
         }
 
