@@ -446,7 +446,7 @@
         async function loadWithdrawalHistory() {
             const container = document.getElementById('history-withdrawals');
             container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">載入中...</p>';
-            const { data, error } = await sb.from('withdrawals').select('*').eq('user_id', currentUser.user_id).order('requested_at', {ascending:false}).limit(50);
+            const { data, error } = await sb.rpc('get_player_withdrawal_history', { p_user_id: currentUser.user_id, p_limit: 50 });
             if (error || !data || data.length === 0) { container.innerHTML = '<p class="text-slate-500 text-sm text-center py-6">暫無提款記錄</p>'; return; }
             const statusMap = { pending: '處理中', approved: '已完成', rejected: '已拒絕' };
             const colorMap = { pending: 'bg-yellow-900/50 text-yellow-400', approved: 'bg-emerald-900/50 text-emerald-400', rejected: 'bg-red-900/50 text-red-400' };
