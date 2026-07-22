@@ -147,14 +147,28 @@
                     <i class="fa-solid fa-plus mr-1"></i>開新票據
                 </button>
             </div>
-            <div class="overflow-x-auto"><table class="w-full text-sm">
+
+            <h4 class="text-sm font-bold text-emerald-400 mb-2 mt-2">進行中票據</h4>
+            <div class="overflow-x-auto mb-6"><table class="w-full text-sm">
                 <thead><tr class="border-b border-slate-700 text-slate-400">
+                    <th class="py-3 px-3 text-left">排序</th>
                     <th class="py-3 px-3 text-left">編號</th><th class="py-3 px-3 text-left">名稱</th>
                     <th class="py-3 px-3 text-left">方向</th><th class="py-3 px-3 text-left">賠率</th>
                     <th class="py-3 px-3 text-left">到期時間</th><th class="py-3 px-3 text-left">狀態</th>
                     <th class="py-3 px-3 text-left">累積金額</th><th class="py-3 px-3 text-right">操作</th>
                 </tr></thead>
-                <tbody id="manage-tickets-body" class="divide-y divide-slate-800"></tbody>
+                <tbody id="manage-tickets-active-body" class="divide-y divide-slate-800"></tbody>
+            </table></div>
+
+            <h4 class="text-sm font-bold text-slate-500 mb-2">已結束票據</h4>
+            <div class="overflow-x-auto"><table class="w-full text-sm">
+                <thead><tr class="border-b border-slate-700 text-slate-400">
+                    <th class="py-3 px-3 text-left">編號</th><th class="py-3 px-3 text-left">名稱</th>
+                    <th class="py-3 px-3 text-left">方向</th><th class="py-3 px-3 text-left">賠率</th>
+                    <th class="py-3 px-3 text-left">到期時間</th><th class="py-3 px-3 text-left">狀態</th>
+                    <th class="py-3 px-3 text-left">累積金額</th>
+                </tr></thead>
+                <tbody id="manage-tickets-expired-body" class="divide-y divide-slate-800"></tbody>
             </table></div>
         </div>
 
@@ -357,7 +371,7 @@
         function mapTicket(t) {
             return { id:t.id, name:t.name, direction:t.direction||'bullish', odds:Number(t.odds), unhedged:Number(t.unhedged)||0,
                 lastHedge:t.last_hedge||t.created_at, expiresAt:t.expires_at, maxLimit:Number(t.max_limit)||500000,
-                accumulatedBet:Number(t.accumulated_bet)||0, status:t.status||'open' };
+                accumulatedBet:Number(t.accumulated_bet)||0, status:t.status||'open', sortOrder: t.sort_order ?? t.id };
         }
 
         sb.channel('admin-all').on('postgres_changes',{event:'*',schema:'public',table:'tickets'},()=>fetchAll())
@@ -468,28 +482,72 @@
         }
 
         function renderManageTickets() {
-            const tbody = document.getElementById('manage-tickets-body');
-            if (tickets.length===0) { tbody.innerHTML='<tr><td colspan="8" class="py-6 text-center text-slate-500">沒有任何票據</td></tr>'; return; }
+            const activeBody = document.getElementById('manage-tickets-active-body');
+            const expiredBody = document.getElementById('manage-tickets-expired-body');
             const statusColor = { open:'text-emerald-400', paused:'text-yellow-400', closed:'text-yellow-400', settled:'text-slate-500', cancelled:'text-red-500' };
             const statusLabel = { open:'開放', paused:'暫停', closed:'待結算', settled:'已結算', cancelled:'已取消' };
-            tbody.innerHTML = tickets.map(t=>`
-                <tr class="border-b border-slate-800 hover:bg-slate-800/50">
-                    <td class="py-2.5 px-3 text-slate-400">#${t.id}</td>
-                    <td class="py-2.5 px-3">${t.name}</td>
-                    <td class="py-2.5 px-3">${t.direction==='bullish'?'看漲':'看跌'}</td>
-                    <td class="py-2.5 px-3">${t.odds}x</td>
-                    <td class="py-2.5 px-3 text-slate-400">${formatFullTime(t.expiresAt)}</td>
-                    <td class="py-2.5 px-3 ${statusColor[t.status]||''}">${statusLabel[t.status]||t.status}</td>
-                    <td class="py-2.5 px-3">$${t.accumulatedBet.toLocaleString()}</td>
-                    <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                        ${(t.status==='open'||t.status==='paused') ? `
-                        <button onclick="toggleTicketPause(${t.id}, ${t.status==='paused'})" class="px-3 py-1.5 ${t.status==='paused'?'bg-emerald-700 hover:bg-emerald-600':'bg-yellow-700 hover:bg-yellow-600'} rounded-lg text-xs mr-2">${t.status==='paused'?'恢復':'暫停'}</button>
-                        <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
-                        <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : (t.status==='closed' ? `
-                        <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
-                        <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : '—')}
-                    </td>
-                </tr>`).join('');
+            const activeStatuses = ['open','paused','closed'];
+            const expiredStatuses = ['settled','cancelled'];
+
+            const active = tickets.filter(t=>activeStatuses.includes(t.status))
+                .sort((a,b)=>(a.sortOrder??a.id)-(b.sortOrder??b.id));
+            const expired = tickets.filter(t=>expiredStatuses.includes(t.status))
+                .sort((a,b)=>b.id-a.id);
+
+            if (active.length===0) {
+                activeBody.innerHTML='<tr><td colspan="9" class="py-6 text-center text-slate-500">沒有進行中票據</td></tr>';
+            } else {
+                activeBody.innerHTML = active.map((t,idx)=>`
+                    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                        <td class="py-2.5 px-3 whitespace-nowrap">
+                            <button onclick="moveTicket(${t.id}, 'up', ${idx})" class="text-slate-400 hover:text-white px-1" ${idx===0?'style="opacity:0.3" disabled':''}><i class="fa-solid fa-caret-up"></i></button>
+                            <button onclick="moveTicket(${t.id}, 'down', ${idx})" class="text-slate-400 hover:text-white px-1" ${idx===active.length-1?'style="opacity:0.3" disabled':''}><i class="fa-solid fa-caret-down"></i></button>
+                        </td>
+                        <td class="py-2.5 px-3 text-slate-400">#${t.id}</td>
+                        <td class="py-2.5 px-3">${t.name}</td>
+                        <td class="py-2.5 px-3">${t.direction==='bullish'?'看漲':'看跌'}</td>
+                        <td class="py-2.5 px-3">${t.odds}x</td>
+                        <td class="py-2.5 px-3 text-slate-400">${formatFullTime(t.expiresAt)}</td>
+                        <td class="py-2.5 px-3 ${statusColor[t.status]||''}">${statusLabel[t.status]||t.status}</td>
+                        <td class="py-2.5 px-3">$${t.accumulatedBet.toLocaleString()}</td>
+                        <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                            ${(t.status==='open'||t.status==='paused') ? `
+                            <button onclick="toggleTicketPause(${t.id}, ${t.status==='paused'})" class="px-3 py-1.5 ${t.status==='paused'?'bg-emerald-700 hover:bg-emerald-600':'bg-yellow-700 hover:bg-yellow-600'} rounded-lg text-xs mr-2">${t.status==='paused'?'恢復':'暫停'}</button>
+                            <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
+                            <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>` : `
+                            <button onclick="openEditOddsModal(${t.id}, '${t.name.replace(/'/g,"\\'")}', ${t.odds})" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs mr-2">編輯賠率</button>
+                            <button onclick="cancelTicket(${t.id})" class="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded-lg text-xs">取消並退款</button>`}
+                        </td>
+                    </tr>`).join('');
+            }
+
+            if (expired.length===0) {
+                expiredBody.innerHTML='<tr><td colspan="7" class="py-6 text-center text-slate-500">沒有已結束票據</td></tr>';
+            } else {
+                expiredBody.innerHTML = expired.map(t=>`
+                    <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                        <td class="py-2.5 px-3 text-slate-400">#${t.id}</td>
+                        <td class="py-2.5 px-3">${t.name}</td>
+                        <td class="py-2.5 px-3">${t.direction==='bullish'?'看漲':'看跌'}</td>
+                        <td class="py-2.5 px-3">${t.odds}x</td>
+                        <td class="py-2.5 px-3 text-slate-400">${formatFullTime(t.expiresAt)}</td>
+                        <td class="py-2.5 px-3 ${statusColor[t.status]||''}">${statusLabel[t.status]||t.status}</td>
+                        <td class="py-2.5 px-3">$${t.accumulatedBet.toLocaleString()}</td>
+                    </tr>`).join('');
+            }
+        }
+
+        async function moveTicket(ticketId, direction, currentIdx) {
+            const activeStatuses = ['open','paused','closed'];
+            const active = tickets.filter(t=>activeStatuses.includes(t.status))
+                .sort((a,b)=>(a.sortOrder??a.id)-(b.sortOrder??b.id));
+            const swapIdx = direction==='up' ? currentIdx-1 : currentIdx+1;
+            if (swapIdx<0 || swapIdx>=active.length) return;
+            const a = active[currentIdx], b = active[swapIdx];
+            const aOrder = a.sortOrder ?? a.id, bOrder = b.sortOrder ?? b.id;
+            await sb.rpc('update_ticket_sort_order', { p_ticket_id: a.id, p_new_order: bOrder });
+            await sb.rpc('update_ticket_sort_order', { p_ticket_id: b.id, p_new_order: aOrder });
+            fetchAll();
         }
 
         async function loadDailyReport() {
@@ -567,7 +625,7 @@
             fetchAll();
         }
         async function toggleTicketPause(ticketId, currentlyPaused) {
-            const action = currentlyPaused ? '恢復接受注碼' : '暫停接受注碼';
+            const action = currentlyPaused ? '恢復接受注碼' : '暫停接受注���';
             if (!confirm(`確定要${action}呢隻ticket？`)) return;
             const { data, error } = await sb.rpc('toggle_ticket_pause', { p_ticket_id: ticketId, p_pause: !currentlyPaused });
             if (error || !data.success) { alert('操作失敗：'+(data?data.message:error.message)); return; }
