@@ -459,7 +459,7 @@
 
         // ---------- 票據 ----------
         async function loadTickets() {
-            const { data, error } = await sb.from('tickets').select('*').order('id', { ascending: true });
+            const { data, error } = await sb.from('tickets').select('*').order('sort_order', { ascending: true, nullsFirst: false }).order('id', { ascending: true });
             if (error) { console.error(error); document.getElementById('loading-state').innerHTML = '<p class="text-red-400 text-sm">載入失敗</p>'; return; }
             tickets = data.filter(t => t.status !== 'cancelled' && t.status !== 'settled').map(mapTicket);
             document.getElementById('loading-state').classList.add('hidden');
